@@ -1,0 +1,43 @@
+# Plaything · 小小群落
+
+A standalone browser recreation inspired by Black Mirror: Thronglets. An unofficial tribute, not the complete official game. All graphics use original procedural Canvas pixel rendering. Behavior is rule-based simulation; there is no conscious AI, external model API, backend, or paid dependency.
+
+## Run
+
+```sh
+python3 -m http.server 8000 --directory dist
+```
+
+Open http://localhost:8000. No dependencies or build required. Progress is browser-local, auto-saved every eight seconds and on page exit; it does not advance while closed. Sound starts off.
+
+## Game loop
+
+Feed, clean, and play with yellow creatures. Gather renewable wood and gems, reproduce, and build orchards, baths, playgrounds, nests, mines, and resonance towers. Creatures seek facilities autonomously and reproduce when healthy. Food shortages and storms challenge the colony. Reach 16 creatures and build a resonance tower to complete progression, then keep growing.
+
+Chinese interface; draggable isometric world; zoom; pause and 1×/2×/4× speed; help; reset confirmation; optional synthesized sound; desktop/mobile layouts; local save.
+
+## Controls
+
+Select a tool, then click a creature. Harvest trees and rocks; choose a building and click empty land. Drag or arrow keys pan; scroll or +/− zoom; 1–5 select tools; Space pauses; Escape cancels. Help includes restart on mobile.
+
+## Source
+
+- `dist/index.html`: Chinese interface and dialogs
+- `dist/style.css`: responsive retro styling
+- `dist/game.js`: state, simulation, input, Canvas renderer
+- `tests/smoke.cjs`: headless simulation checks
+
+Run `node --check dist/game.js` and `node tests/smoke.cjs`. Tests need only Node built-ins; optional `@napi-rs/canvas` enables rendered captures with `GAME_SCREENSHOT=/path/image.png`.
+
+Intended canonical maintenance destination: https://github.com/BartLiu0820/plaything . Sites uses a separate managed deployment repository. No credentials belong in source; `.openai/hosting.json` is deployment metadata only.
+
+## Verification and scope
+
+Tests cover care, splitting, exact resource targeting, construction costs, occupied placement rejection, tower requirement, orchard production, pause/speed/reset, local persistence, automated care/reproduction, and 300 simulated seconds. Browser-process launch was restricted in the build environment, so full browser UI/keyboard/touch verification remains a manual follow-up. The game world was rendered and visually inspected with offscreen Canvas.
+
+Includes a bounded original progression, not all official levels, tools, story, assets, or endings. Not affiliated with Netflix or Night School Studio.
+
+## References
+
+- https://www.netflix.com/tudum/articles/black-mirror-thronglets-mobile-game-news
+- https://about.netflix.com/en/news/experience-black-mirror-like-never-before-introducing-the-long-lost-game
