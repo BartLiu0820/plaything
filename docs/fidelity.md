@@ -40,7 +40,7 @@ This project is an unofficial recreation of a bounded game loop inspired by Blac
 
 ## Verification
 
-`node --check dist/game.js` and `node tests/smoke.cjs` pass. The deterministic harness checks 58 HTML element bindings, care and busy action transitions, exact harvest targeting, unlock/resource/occupied placement rules, pause/speed/reset, old-save migration, extinct save persistence, ten need states, targeted care, hold cleaning, resting recovery, no food charge when full, and 600 simulated seconds of automatic care/reproduction (population reached 24 without non-finite coordinates or death).
+`node --check dist/game.js` and `node tests/smoke.cjs` pass. The deterministic harness checks 69 HTML element bindings, care and busy action transitions, exact harvest targeting, unlock/resource/occupied placement rules, pause/speed/reset, old-save migration, extinct save persistence, ten need states, targeted care, hold cleaning, resting recovery, no food charge when full, and 600 simulated seconds of automatic care/reproduction (population reached 24 without non-finite coordinates or death).
 
 The renderer generated a 16-state portrait comparison and a populated-world image for visual review. This is offscreen Canvas verification, not a claim of full browser end-to-end testing. The environment blocks browser process sockets and file navigation, so native mobile touch and full browser DOM layout remain unverified here.
 
@@ -61,3 +61,20 @@ Additional primary sources:
 - Pollution removal: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/faq/1105-how-do-i-remove-clean-up-the-pollution/
 
 Additional tests pass for bridge spending/repeated clicks/construction completion, inaccessible far-shore construction, ore conversion and insufficient resources, mine-node constraints, factory throughput/pollution/illness, stopping factory production, mop cleanup, Mark II gating and upgrade costs, and visible purple-ground rendering. Fixed two issues found by testing: the original bridge entry was accidentally inside water, and the first pollution render pass was incorrectly nested under resonance-tower rendering. Rendered and inspected the corrected bridge and pollution scenes. Full browser/touch limitation remains as described above.
+
+
+## Episode-first visual pass
+
+The user clarified that the on-screen game in the episode is the visual target, rather than the released mobile game. The default composition now follows the inspected episode screen: full-screen environment, a compact left two-column/four-row toolbar under a circular gold-rimmed T crest, and a gold/olive population medallion at the top-right. The always-visible mobile-style objective strip, bottom care dock and permanent side dashboard were removed from the default screen. Existing care controls open in a compact optional panel; previously implemented mobile-derived construction/industrial systems and objectives remain in an explicitly labeled optional expansion panel, preserving saves and functionality without asserting that these appear in the episode.
+
+Scene changes grounded in the inspected frame: a predominantly green, broad diamond-patch landscape; a left-side angular blue river; taller rounded foliage and grey-blue angular rock clusters; smaller yellow/blue creatures relative to trees; and distinct back-facing sprites with no eyes. The visible frame supports those features but does not provide the complete map geometry. Our terrain remains an interpretation. Creature/resource positions affected by the river refinement migrate to nearby valid ground; existing built structures keep valid ground underneath them.
+
+An independent second episode still shows open-mouth singing poses. A production interview with sound designer Tom Jenkins says the animations were created around a melody and that the voice evolves toward a choir at varied speeds/intervals. Implemented occasional open-mouth group-response behavior and optional quiet synthesized square-wave tones, instead of presenting an exact unobserved recording or melody. Sound is off by default. Frame timing, tune and tool semantics are still original choices. Only the active hand tool is clearly identifiable in the reference toolbar; other icons are too blurred to assign canonical labels reliably.
+
+Episode references inspected:
+- Genuine Netflix episode still and narrative: https://www.netflix.com/tudum/articles/black-mirror-plaything-ending-explained
+- Full episode screen reproduced in editorial coverage: https://cdn.thetab.com/wp-content/uploads/2025/04/22160658/VS-Netflix-BlackMirrorPlaything-2206.jpg
+- Second episode screen / group open-mouth poses: https://tvobsessive.com/wp-content/smush-webp/2025/04/black-mirror-plaything-throng-700x461.jpg.webp
+- First-person production interview: https://www.asoundeffect.com/black-mirror-season-7-sound/
+
+Added tests verify the eight-cell toolbar and menu/status/build panel open/close behavior. All prior simulation, saves, bridge and pollution tests continue to pass. Compared a populated-world render and an initial-world render against the episode-screen composition. Canvas rendering does not verify HTML layout in a browser; that previously documented limitation remains. Exact episode HUD pixel metrics, all tool meanings, full landscape, dialogue triggers and sprite frame timing still require clearer continuous reference footage.

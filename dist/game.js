@@ -1,13 +1,13 @@
 'use strict';
 (()=>{
-const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('2d'),pc=$('portrait').getContext('2d');
+const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('2d'),pc=$('portrait').getContext('2d'),bc=$('badge-art').getContext('2d');
 const N=33,TW=34,TH=17,SAVE='thronglets-world-v1';
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const defs={orchard:{unlock:10,name:'苹果树',icon:'♣',wood:10,gems:2,desc:'持续产粮 · 自动喂食'},bath:{unlock:6,name:'浴池',icon:'≈',wood:12,gems:4,desc:'自动清洁 · 减少疾病'},play:{unlock:15,name:'旋转木马',icon:'⚑',wood:14,gems:4,desc:'自动玩耍 · 提升快乐'},nest:{name:'巢居',icon:'⌂',wood:18,gems:5,desc:'人口上限 +8'},mine:{gemUnlock:50,name:'晶矿',icon:'◆',wood:22,gems:6,desc:'矿脉上建造 · 每9秒产4矿石'},factory:{name:'工厂',icon:'▥',wood:30,gems:20,gemUnlock:300,desc:'3矿石→12晶石 / 6秒 · 产生污染'},tower:{name:'共鸣塔',icon:'⋮',wood:40,gems:25,desc:'需 16 个体 · 集体共鸣'}};
 const nodes=[{x:7,y:15},{x:26,y:9},{x:28,y:12}];
 const tools=[['inspect','⌖','观察'],['feed','●','喂食'],['wash','≈','清洁'],['play','✧','玩耍'],['harvest','⚒','采集'],['mop','▱','拖洗']];
 let selectedBuilding=null;
-let s,tool='feed',building=null,selected=1,paused=false,speed=1,sound=false,audio=null,zoom=1,pan={x:0,y:0},size={w:1000,h:650},effects=[],particles=[],animationTime=0,scrubAt=0,last=0,uiClock=0,saveClock=0,toastTimer,drag=null,hover=null;
+let s,tool='inspect',building=null,selected=1,paused=false,speed=1,sound=false,audio=null,zoom=1,pan={x:0,y:0},size={w:1000,h:650},effects=[],particles=[],animationTime=0,scrubAt=0,last=0,uiClock=0,saveClock=0,toastTimer,drag=null,hover=null;
 function creature(x,y,id){return{id,x,y,tx:x,ty:y,food:75,clean:78,happy:70,health:100,energy:90,age:0,repro:0,wait:0,behavior:'idle',actionTime:0,actionTotal:0,goal:null,goalX:null,goalY:null,act:'正在观察你',seed:rand(0,6)}}
 function terrain(x,y){
  if(x<0||y<0||x>=N||y>=22)return'void';
@@ -15,16 +15,18 @@ function terrain(x,y){
  if(x>=24)return ((x-27)**2/16+(y-10.5)**2/26<=1)?'grass':'void';
  if(x>=22)return'void';
  if((x-10.5)**2/130+(y-10.5)**2/122>1)return'void';
- if((x>=15&&y>=4&&y<=8)||(x>=17&&y<=12&&y>=3))return'water';return'grass';
+ if(nodes.some(n=>n.x===x&&n.y===y)||s?.buildings?.some(b=>Math.round(b.x)===x&&Math.round(b.y)===y))return'grass';
+ const center=a=>a+(a<4?8:a<8?6:a<12?8:6),edge=center(x),previous=center(Math.max(0,x-1));
+ if(x<=14&&y>=Math.min(edge,previous)&&y<=Math.max(edge,previous)+1)return'water';return'grass';
 }
-function initial(){const objects=[];for(let x=1;x<N-1;x++)for(let y=1;y<N-1;y++){if(terrain(x,y)!=='grass'||nodes.some(n=>n.x===x&&n.y===y)||Math.hypot(x-10,y-11)<3)continue;let n=(x*173+y*97)%31;if(n<5)objects.push({x,y,type:n<3?'tree':'rock',amount:8,regen:0});}return{version:3,ore:0,maxGems:12,pollution:[],bridge:{paid:false,progress:0,complete:false},maxPopulation:1,time:0,wood:24,gems:12,food:30,creatures:[creature(10.2,11,1)],objects,buildings:[],nextId:2,stage:0,answered:false,storm:0,eventAt:155,autoAt:0,echo:false,log:[]}}
+function initial(){const objects=[];for(let x=1;x<N-1;x++)for(let y=1;y<N-1;y++){if(terrain(x,y)!=='grass'||nodes.some(n=>n.x===x&&n.y===y)||Math.hypot(x-10,y-11)<3)continue;let n=(x*173+y*97)%31;if(n<5)objects.push({x,y,type:n<3?'tree':'rock',amount:8,regen:0});}return{version:4,ore:0,maxGems:12,pollution:[],bridge:{paid:false,progress:0,complete:false},maxPopulation:1,time:0,wood:24,gems:12,food:30,creatures:[creature(10.2,11,1)],objects,buildings:[],nextId:2,stage:0,answered:false,storm:0,eventAt:155,autoAt:0,echo:false,log:[]}}
 function migrate(v){
-  if(!v||![1,2,3].includes(v.version)||!Array.isArray(v.creatures)||!Array.isArray(v.objects)||!Array.isArray(v.buildings)||!Number.isFinite(v.time))return null;
-  v.mopUnlocked=!!v.mopUnlocked||!!v.pollution?.length;v.ore=Number.isFinite(v.ore)?v.ore:0;v.maxGems=Math.max(v.maxGems||0,v.gems||0);v.pollution=Array.isArray(v.pollution)?v.pollution:[];v.bridge=v.bridge||{paid:false,progress:0,complete:false};if(v.version<3){v.objects=v.objects.filter(o=>!nodes.some(n=>n.x===o.x&&n.y===o.y));for(let x=24;x<=30;x++)for(let y=7;y<=14;y++)if(terrain(x,y)==='grass'&&(x*3+y)%7===0&&!nodes.some(n=>n.x===x&&n.y===y))v.objects.push({x,y,type:'rock',amount:8,regen:0})}v.maxPopulation=Math.max(v.maxPopulation||0,v.creatures.length,...v.buildings.map(b=>defs[b.type]?.unlock||0));v.version=3;v.creatures=v.creatures.filter(c=>Number.isFinite(c.x)&&Number.isFinite(c.y)).map(c=>({...creature(c.x,c.y,c.id),...c,energy:Number.isFinite(c.energy)?clamp(c.energy,0,100):90,behavior:c.behavior||'idle',actionTime:Math.max(0,c.actionTime||0),actionTotal:Math.max(0,c.actionTotal||0),goal:c.goal||null}));return v;
+  if(!v||![1,2,3,4].includes(v.version)||!Array.isArray(v.creatures)||!Array.isArray(v.objects)||!Array.isArray(v.buildings)||!Number.isFinite(v.time))return null;
+  v.mopUnlocked=!!v.mopUnlocked||!!v.pollution?.length;v.ore=Number.isFinite(v.ore)?v.ore:0;v.maxGems=Math.max(v.maxGems||0,v.gems||0);v.pollution=Array.isArray(v.pollution)?v.pollution:[];v.bridge=v.bridge||{paid:false,progress:0,complete:false};if(v.version<3){v.objects=v.objects.filter(o=>!nodes.some(n=>n.x===o.x&&n.y===o.y));for(let x=24;x<=30;x++)for(let y=7;y<=14;y++)if(terrain(x,y)==='grass'&&(x*3+y)%7===0&&!nodes.some(n=>n.x===x&&n.y===y))v.objects.push({x,y,type:'rock',amount:8,regen:0})}v.maxPopulation=Math.max(v.maxPopulation||0,v.creatures.length,...v.buildings.map(b=>defs[b.type]?.unlock||0));v.version=4;v.creatures=v.creatures.filter(c=>Number.isFinite(c.x)&&Number.isFinite(c.y)).map(c=>({...creature(c.x,c.y,c.id),...c,energy:Number.isFinite(c.energy)?clamp(c.energy,0,100):90,behavior:c.behavior||'idle',actionTime:Math.max(0,c.actionTime||0),actionTotal:Math.max(0,c.actionTotal||0),goal:c.goal||null}));return v;
 }
 function load(){try{return migrate(JSON.parse(localStorage.getItem(SAVE)))||initial()}catch{return initial()}}
 
-s=load();paused=!s.creatures.length;animationTime=s.time;selected=s.creatures[0]?.id||1;
+s=load();normalizeEpisodeMap();paused=!s.creatures.length;animationTime=s.time;selected=s.creatures[0]?.id||1;
 function save(){try{localStorage.setItem(SAVE,JSON.stringify(s));$('save-status').textContent='已存档 · 此浏览器'}catch{$('save-status').textContent='浏览器未允许存档'}}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2600)}
 function beep(freq=550){if(!sound)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.setValueAtTime(freq,audio.currentTime);g.gain.setValueAtTime(.045,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.13);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.14)}catch{}}
@@ -32,29 +34,37 @@ const capacity=()=>8+s.buildings.filter(b=>b.type==='nest').length*8;
 const average=k=>s.creatures.reduce((a,c)=>a+c[k],0)/Math.max(1,s.creatures.length);
 const canSplit=c=>c&&c.food>=65&&c.clean>=60&&c.happy>=65&&c.health>=60&&c.energy>=35&&c.actionTime<=0&&s.food>=8&&s.gems>=2&&s.creatures.length<capacity();
 function split(c,automatic=false){if(!canSplit(c)){toast(s.creatures.length>=capacity()?'巢居已满，先建造新的巢居':'需饱食65、洁净60、快乐65、健康60、精力35以上；等当前动作结束，再消耗8食物、2晶石');return false}s.food-=8;s.gems-=2;c.food-=12;c.happy-=10;c.repro=0;setAction(c,'splitting',2.5,'正在分裂');const baby=creature(clamp(c.x+.35,2,19),clamp(c.y+.3,2,19),s.nextId++);setAction(baby,'newborn',3,'刚刚诞生');s.creatures.push(baby);burst(baby,'birth',18);effects.push({x:c.x,y:c.y,text:'新生命！',color:'#ffeca1',life:2});beep(850);toast(automatic?'一个新生命自然诞生了':'它把快乐分成了两份');return true}
-function setTool(t){tool=t;building=null;selectedBuilding=null;updateUI();beep(350)}
-$('tools').innerHTML=tools.map(([id,icon,label],i)=>`<button class="tool" data-tool="${id}" title="${label}（${i+1}）"><span class="icon">${icon}</span><span>${label}<small>${i+1}</small></span></button>`).join('');
+function setTool(t){if(t!=='inspect')$('detail-panel').hidden=true;tool=t;building=null;selectedBuilding=null;updateUI();beep(350)}
 $('buildings').innerHTML=Object.entries(defs).map(([id,d])=>`<button class="building" data-build="${id}" title="${d.desc}"><span>${d.icon} ${d.name}</span><small>${d.wood} 木 · ${d.gems} 晶</small></button>`).join('');
 $('tools').onclick=e=>{const b=e.target.closest('[data-tool]');if(b)setTool(b.dataset.tool)};
-$('buildings').onclick=e=>{const b=e.target.closest('[data-build]');if(!b)return;building=b.dataset.build;tool='build';toast(`${defs[building].name}：${defs[building].desc}。点击空地建造`);updateUI()};
+$('buildings').onclick=e=>{const b=e.target.closest('[data-build]');if(!b)return;building=b.dataset.build;tool='build';$('detail-panel').hidden=true;toast(`${defs[building].name}：${defs[building].desc}。点击空地建造`);updateUI()};
 $('split').onclick=()=>{split(s.creatures.find(c=>c.id===selected)||s.creatures[0]);updateUI();save()};
-$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶':'Ⅱ';$('pause').setAttribute('aria-label',paused?'继续':'暂停');updateUI()};
+$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶':'◷';$('pause').setAttribute('aria-label',paused?'继续':'暂停');updateUI()};
 $('speed').onclick=()=>{speed=speed===1?2:speed===2?4:1;$('speed').textContent=speed+'×'};
 $('sound').onclick=()=>{sound=!sound;$('sound').textContent=sound?'♪ 开':'♪ 关';beep()};
 $('center').onclick=()=>{pan={x:0,y:0};zoom=1};
 $('zoom-in').onclick=()=>zoom=clamp(zoom+.15,.55,1.9);$('zoom-out').onclick=()=>zoom=clamp(zoom-.15,.55,1.9);
 $('help').onclick=()=>$('help-dialog').showModal();document.querySelectorAll('#help-dialog .close').forEach(b=>b.onclick=()=>$('help-dialog').close());
-$('reset-help').onclick=()=>{$('help-dialog').close();$('reset-dialog').showModal()};$('restart').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=()=>{s=initial();selectedBuilding=null;animationTime=0;selected=1;effects=[];particles=[];paused=false;speed=1;pan={x:0,y:0};zoom=1;$('pause').textContent='Ⅱ';$('speed').textContent='1×';setTool('feed');save();$('reset-dialog').close();toast('一个新的世界诞生了')};
+$('reset-help').onclick=()=>{$('help-dialog').close();$('reset-dialog').showModal()};$('restart').onclick=()=>$('reset-dialog').showModal();$('cancel-reset').onclick=()=>$('reset-dialog').close();$('confirm-reset').onclick=()=>{s=initial();selectedBuilding=null;animationTime=0;selected=1;effects=[];particles=[];paused=false;speed=1;pan={x:0,y:0};zoom=1;$('pause').textContent='◷';$('speed').textContent='1×';setTool('feed');save();$('reset-dialog').close();toast('一个新的世界诞生了')};
 $('respond').onclick=()=>{if(s.responseStage===s.stage){toast('它们还记得你的回答');return}s.answered=true;s.responseStage=s.stage;s.creatures.forEach(c=>c.happy=clamp(c.happy+8,0,100));toast('它们记住了你的回应');beep(660);updateUI()};
 function resize(){const r=canvas.getBoundingClientRect();size={w:r.width,h:r.height};canvas.width=Math.floor(r.width);canvas.height=Math.floor(r.height);ctx.imageSmoothingEnabled=false}new ResizeObserver(resize).observe(canvas);
 function scale(){return Math.min(size.w/900,size.h/630)*zoom*(size.w<550?1.42:1.08)}
 function project(x,y,z=0){const k=scale();return{x:size.w*.49+(x-y)*TW*k+pan.x,y:size.h*.49+((x+y)-21)*TH*k-z*k+pan.y}}
 function unproject(px,py){const k=scale(),a=(px-size.w*.49-pan.x)/(TW*k),b=(py-size.h*.49-pan.y)/(TH*k)+21;return{x:(a+b)/2,y:(b-a)/2}}
 const occupied=(x,y)=>s.objects.some(o=>o.amount>0&&Math.round(o.x)===x&&Math.round(o.y)===y)||s.buildings.some(b=>Math.round(b.x)===x&&Math.round(b.y)===y);
+function openPanel(tab='creature'){$('detail-panel').hidden=false;$('system-menu').hidden=true;for(const name of ['creature','build','advanced'])$(name+'-section').hidden=name!==tab;document.querySelectorAll('[data-panel]').forEach(b=>b.classList.toggle('active',b.dataset.panel===tab))}
+$('population-badge').onclick=()=>openPanel('creature');$('open-build').onclick=()=>openPanel('build');$('close-panel').onclick=()=>{$('detail-panel').hidden=true};$('crest-menu').onclick=()=>{$('system-menu').hidden=!$('system-menu').hidden};$('panel-tabs').onclick=e=>{const b=e.target.closest('[data-panel]');if(b)openPanel(b.dataset.panel)};
+function normalizeEpisodeMap(){
+ const nearest=p=>{for(let radius=0;radius<22;radius++)for(let dx=-radius;dx<=radius;dx++)for(let dy=-radius;dy<=radius;dy++){const x=Math.round(p.x)+dx,y=Math.round(p.y)+dy;if(terrain(x,y)==='grass'&&(s.bridge.complete||x<22))return{x,y}}return{x:10,y:11}};
+ for(const c of s.creatures){if(terrain(Math.round(c.x),Math.round(c.y))!=='grass'){const p=nearest(c);c.x=p.x;c.y=p.y;c.tx=p.x;c.ty=p.y;c.goal=null;c.route=null}}
+ for(const o of s.objects){if(terrain(o.x,o.y)!=='grass'){const p=nearest(o);o.x=p.x;o.y=p.y}}
+}
+function drawBadge(){bc.clearRect(0,0,90,65);for(const [i,x,y] of [[1,25,48],[2,47,36],[3,68,50]])pixelCreature(bc,x,y,.54,{id:1,age:100,x:0,y:0,tx:0,ty:0,food:90,clean:100,happy:75,health:100,energy:90,seed:i,behavior:'idle',actionTime:0},0,true)}
+function sing(c){if(!sound)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type='square';o.frequency.value=[220,275,330,440][c.id%4];g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.014,audio.currentTime+.035);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.45);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.46)}catch{}}
 function currentCreature(){return s.creatures.find(c=>c.id===selected)||s.creatures[0]}
 function setAction(c,state,seconds,label){c.behavior=state;c.actionTime=seconds;c.actionTotal=seconds;c.wait=seconds;c.act=label;c.tx=c.x;c.ty=c.y;c.goal=null;c.route=null}
 function burst(c,type,count=12){for(let i=0;i<count;i++)particles.push({x:c.x,y:c.y,dx:rand(-13,13),dy:rand(-26,-7),vx:rand(-12,12),vy:rand(-27,-7),life:rand(.6,1.4),max:1.4,type,size:rand(2,4)});if(particles.length>260)particles.splice(0,particles.length-260)}
-function stateOf(c){if(!c)return{key:'absent',label:'无个体',icon:'—',tone:'muted'};const active={eating:['进食中','●'],washing:['清洁中','≈'],playing:['玩耍中','✧'],sleeping:['休息中','z'],splitting:['分裂中','✦'],newborn:['新生儿','✦']};if(c.actionTime>0&&active[c.behavior])return{key:c.behavior,label:active[c.behavior][0],icon:active[c.behavior][1],tone:'good'};if(c.health<35||((c.exposure||0)>45))return{key:'sick',label:'虚弱',icon:'!',tone:'danger'};if(c.food<18)return{key:'starving',label:'非常饥饿',icon:'●',tone:'danger'};if(c.clean<20)return{key:'filthy',label:'浑身脏污',icon:'≈',tone:'danger'};if(c.energy<25)return{key:'tired',label:'困倦',icon:'z',tone:'warn'};if(c.food<45)return{key:'hungry',label:'肚子饿了',icon:'●',tone:'warn'};if(c.clean<48)return{key:'dirty',label:'需要清洁',icon:'≈',tone:'warn'};if(c.happy<25)return{key:'sad',label:'很不开心',icon:'…',tone:'danger'};if(c.happy<50)return{key:'bored',label:'想和你玩',icon:'✧',tone:'warn'};if(c.happy>=82&&c.food>=55&&c.clean>=55)return{key:'happy',label:'心满意足',icon:'♥',tone:'good'};return{key:'neutral',label:'平静好奇',icon:'·',tone:'normal'}}
+function stateOf(c){if(!c)return{key:'absent',label:'无个体',icon:'—',tone:'muted'};const active={singing:['轻声合唱','♪'],eating:['进食中','●'],washing:['清洁中','≈'],playing:['玩耍中','✧'],sleeping:['休息中','z'],splitting:['分裂中','✦'],newborn:['新生儿','✦']};if(c.actionTime>0&&active[c.behavior])return{key:c.behavior,label:active[c.behavior][0],icon:active[c.behavior][1],tone:'good'};if(c.health<35||((c.exposure||0)>45))return{key:'sick',label:'虚弱',icon:'!',tone:'danger'};if(c.food<18)return{key:'starving',label:'非常饥饿',icon:'●',tone:'danger'};if(c.clean<20)return{key:'filthy',label:'浑身脏污',icon:'≈',tone:'danger'};if(c.energy<25)return{key:'tired',label:'困倦',icon:'z',tone:'warn'};if(c.food<45)return{key:'hungry',label:'肚子饿了',icon:'●',tone:'warn'};if(c.clean<48)return{key:'dirty',label:'需要清洁',icon:'≈',tone:'warn'};if(c.happy<25)return{key:'sad',label:'很不开心',icon:'…',tone:'danger'};if(c.happy<50)return{key:'bored',label:'想和你玩',icon:'✧',tone:'warn'};if(c.happy>=82&&c.food>=55&&c.clean>=55)return{key:'happy',label:'心满意足',icon:'♥',tone:'good'};return{key:'neutral',label:'平静好奇',icon:'·',tone:'normal'}}
 function warnings(c){if(!c)return[];return[c.food<35?'饿了':null,c.clean<35?'脏了':null,c.happy<35?'不开心':null,c.energy<25?'困了':null,c.health<40?'虚弱':null,(c.exposure||0)>40?'受污染':null].filter(Boolean)}
 function care(c,kind,scrub=false,automatic=false){
   if(!c)return false;if(paused){toast('世界已暂停，按 ▶ 继续');return false}if(['newborn','splitting'].includes(c.behavior)&&c.actionTime>0){toast('等它完成诞生或分裂，再照顾它');return false}
@@ -65,10 +75,10 @@ function care(c,kind,scrub=false,automatic=false){
   if(kind==='rest'){setAction(c,'sleeping',10,'蜷起来打个小盹');c.goal=null}
   if(!scrub&&!automatic)beep(kind==='play'?780:kind==='wash'?470:520);if(!automatic)updateUI();return true;
 }
-function hitCreature(p){const k=Math.max(.8,scale());return s.creatures.filter(c=>{const q=project(c.x,c.y);return Math.abs(p.x-q.x)<20*k&&p.y>q.y-39*k&&p.y<q.y+9*k}).sort((a,b)=>(b.x+b.y)-(a.x+a.y))[0]}
+function hitCreature(p){const k=Math.max(.6,scale()*.72);return s.creatures.filter(c=>{const q=project(c.x,c.y);return Math.abs(p.x-q.x)<20*k&&p.y>q.y-39*k&&p.y<q.y+9*k}).sort((a,b)=>(b.x+b.y)-(a.x+a.y))[0]}
 function action(p){
   const pos=unproject(p.x,p.y),x=Math.round(pos.x),y=Math.round(pos.y);let near=hitCreature(p)||s.creatures.filter(c=>dist(c,pos)<1.35).sort((a,b)=>dist(a,pos)-dist(b,pos))[0];
-  if(tool==='inspect'){if(near){selected=near.id;updateUI()}else{const b=s.buildings.find(b=>dist(b,pos)<1);if(b){selectedBuilding=b;updateUI();toast(defs[b.type].name+'：'+defs[b.type].desc)}}return}
+  if(tool==='inspect'){if(near){selected=near.id;openPanel('creature');updateUI()}else{const b=s.buildings.find(b=>dist(b,pos)<1);if(b){selectedBuilding=b;openPanel('advanced');updateUI();toast(defs[b.type].name+'：'+defs[b.type].desc)}}return}
   if(paused){toast('世界已暂停，按 ▶ 继续');return}if(tool==='feed'||tool==='wash'||tool==='play'){if(!near){toast('点击小家伙的身体，或在名片里直接照顾');return}care(near,tool);return}
   if(x>=24&&!s.bridge.complete){toast('先在桥头放好木材，让群落修通木桥');return}
   if(tool==='mop'){mop(pos);return}
@@ -108,7 +118,7 @@ canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);
 canvas.addEventListener('pointermove',e=>{const r=canvas.getBoundingClientRect();hover=unproject(e.clientX-r.left,e.clientY-r.top);if(drag){const dx=e.clientX-drag.lx,dy=e.clientY-drag.ly;if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>7)drag.moved=true;if(!drag.scrubbing&&drag.moved){pan.x+=dx;pan.y+=dy}drag.lx=e.clientX;drag.ly=e.clientY;drag.px=e.clientX-r.left;drag.py=e.clientY-r.top}});
 canvas.addEventListener('pointerup',e=>{if(drag&&!drag.moved&&!drag.scrubbing){const r=canvas.getBoundingClientRect();action({x:e.clientX-r.left,y:e.clientY-r.top})}drag=null});canvas.addEventListener('pointercancel',()=>drag=null);
 canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=clamp(zoom-e.deltaY*.001,.55,1.9)},{passive:false});
-document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]'))return;if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;if(e.code==='Space'){e.preventDefault();$('pause').click()}if(e.key>='1'&&e.key<='6')setTool(tools[+e.key-1][0]);if(e.key==='Escape')setTool('inspect');if(e.key==='ArrowLeft'){e.preventDefault();pan.x+=35}if(e.key==='ArrowRight'){e.preventDefault();pan.x-=35}if(e.key==='ArrowUp'){e.preventDefault();pan.y+=35}if(e.key==='ArrowDown'){e.preventDefault();pan.y-=35}});
+document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]'))return;if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;if(e.code==='Space'){e.preventDefault();$('pause').click()}if(e.key>='1'&&e.key<='6')setTool(tools[+e.key-1][0]);if(e.key==='Escape'){setTool('inspect');$('detail-panel').hidden=true;$('system-menu').hidden=true}if(e.key==='ArrowLeft'){e.preventDefault();pan.x+=35}if(e.key==='ArrowRight'){e.preventDefault();pan.x-=35}if(e.key==='ArrowUp'){e.preventDefault();pan.y+=35}if(e.key==='ArrowDown'){e.preventDefault();pan.y-=35}});
 // A persistent need target prevents flickering between facilities at thresholds.
 function chooseGoal(c){
  const options=[['orchard','food',70],['bath','clean',70],['play','happy',70],['nest','energy',32]];
@@ -164,6 +174,7 @@ function update(dt){
      }
    }
 
+   const songCycle=Math.floor(s.time/24);if(s.creatures.length>=4&&c.behavior==='idle'&&c.happy>70&&c.food>55&&c.clean>50&&c.energy>35&&Math.floor(s.time%24)===Math.floor(c.seed)%4&&c.sungCycle!==songCycle){c.sungCycle=songCycle;setAction(c,'singing',1.5,'轻声回应群落');sing(c)}
    if(c.repro>80&&canSplit(c)&&s.time-s.autoAt>18){split(c,true);s.autoAt=s.time}
  }
  if(!s.creatures.length){if(!paused)toast('群落已消失。可在帮助中重新开始');paused=true;$('pause').textContent='▶';$('dialogue').textContent='“世界安静了。也许可以重新开始。”'}
@@ -174,28 +185,39 @@ function update(dt){
 }
 function updateUI(){
  const c=currentCreature();if(c)selected=c.id;const st=stateOf(c);
- $('day').textContent='DAY '+String(1+Math.floor(s.time/120)).padStart(2,'0');$('phase').textContent=['初次接触','共同生活','自我照顾','集体思维','共鸣时代'][s.stage];$('population').textContent=String(s.creatures.length).padStart(2,'0')+' / '+String(capacity()).padStart(2,'0')+' 个体';$('weather').textContent=paused?'时间已暂停':s.storm>0?'风暴中 · 脏污加快':'生态系统运行中';
+ $('day').textContent='DAY '+String(1+Math.floor(s.time/120)).padStart(2,'0');$('phase').textContent=['初次接触','共同生活','自我照顾','集体思维','共鸣时代'][s.stage];$('population').textContent=s.creatures.length;$('population-badge').title=`${s.creatures.length}个体 / 容量${capacity()} · 查看状态`;$('weather').textContent=paused?'时间已暂停':s.storm>0?'风暴中 · 脏污加快':'生态系统运行中';
  for(const key of ['wood','gems','food','ore'])$(key).textContent=Math.floor(s[key]);
  $('selected-name').textContent=c?'THRONG #'+String(c.id).padStart(3,'0'):'没有存活个体';$('activity').textContent=c?c.act:'世界安静了';$('state-label').textContent=st.label;$('state-label').className='state-label '+st.tone;
  $('creature-index').textContent=c?`${s.creatures.findIndex(v=>v.id===c.id)+1} / ${s.creatures.length}`:'0 / 0';
  $('life-detail').textContent=c?`${c.age<18&&c.id>1?'幼体':'个体'} · 存活 ${Math.floor(c.age/60)}分${Math.floor(c.age%60)}秒`:'请选择重新开始';
  $('needs').innerHTML=[['food','饱食'],['clean','洁净'],['happy','愉悦'],['energy','精力'],['health','健康']].map(([key,label])=>{const n=Math.round(c?.[key]||0),color=n<30?'#bd5939':n<60?'#a18234':key==='clean'?'#428f8d':key==='energy'?'#788653':'#568047';return`<div class="need"><span>${label}</span><div class="meter" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${n}"><i style="width:${n}%;background:${color}"></i></div><b>${n}%</b></div>`}).join('');
- const warn=warnings(c);$('care-advice').textContent=!c?'群落已消失':c.actionTime>0?({eating:'咀嚼时身体会轻轻晃动',washing:'按住它继续擦洗，直到泥污消失',playing:'玩球恢复愉悦，也会消耗精力',sleeping:'休息会恢复精力，喂食可唤醒',splitting:'一个生命，正在成为两个',newborn:'给新生命一点适应的时间'})[c.behavior]||c.act:warn.length?'需要关注：'+warn.join('、'):c.clean<75?'身上沾了一点泥，可以帮它洗洗':'状态良好，可以继续探索或繁衍';
+ const warn=warnings(c);$('care-advice').textContent=!c?'群落已消失':c.actionTime>0?({eating:'咀嚼时身体会轻轻晃动',washing:'按住它继续擦洗，直到泥污消失',playing:'玩球恢复愉悦，也会消耗精力',singing:'它们用断续的声音回应彼此',sleeping:'休息会恢复精力，喂食可唤醒',splitting:'一个生命，正在成为两个',newborn:'给新生命一点适应的时间'})[c.behavior]||c.act:warn.length?'需要关注：'+warn.join('、'):c.clean<75?'身上沾了一点泥，可以帮它洗洗':'状态良好，可以继续探索或繁衍';
  const count=s.creatures.filter(v=>warnings(v).length).length;$('colony-alert').textContent=count?`${count} 个体需要照顾 · 定位`:'所有个体状态稳定';$('colony-alert').classList.toggle('urgent',count>0);$('colony-alert').disabled=!count;
  $('split').disabled=!c;$('split-detail').textContent=c&&c.actionTime>0?'等待当前动作完成':'8 食物 · 2 晶石';
  document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('active',b.dataset.tool===tool);b.setAttribute('aria-pressed',b.dataset.tool===tool);if(b.dataset.tool==='mop'){b.classList.toggle('locked',!s.mopUnlocked);b.title=s.mopUnlocked?'清除范围内地面、设施与个体污染':'出现工厂污染后解锁'}});
  document.querySelectorAll('[data-build]').forEach(b=>{b.classList.toggle('active',b.dataset.build===building);b.setAttribute('aria-pressed',b.dataset.build===building);const d=defs[b.dataset.build],locked=(s.maxPopulation||s.creatures.length)<(d.unlock||0)||(d.gemUnlock&&(s.maxGems||s.gems)<d.gemUnlock);b.classList.toggle('locked',locked);b.title=locked?`达到${d.gemUnlock||d.unlock}${d.gemUnlock?'晶石':'个体'}解锁；${d.desc}`:d.desc;const info=b.querySelector?.('small');if(info)info.textContent=locked?d.gemUnlock?`${d.gemUnlock}晶石解锁`:`${d.unlock}个体解锁`:`${d.wood}木 · ${d.gems}晶`});
  const goals=[['照顾它，满足需要后分裂',c?Math.min(c.food/65,c.clean/60,c.happy/65,1):0],['6个体解锁浴池 · 先照顾和繁衍',(Math.min(6,s.creatures.length)/6+(s.buildings.some(b=>b.type==='bath')?1:0))/2],['10个体解锁苹果树 · 建巢扩大容量',(Math.min(10,s.creatures.length)/10+(s.buildings.some(b=>b.type==='orchard')?1:0))/2],['15个体解锁旋转木马 · 16个体建共鸣塔',(Math.min(16,s.creatures.length)/16+(s.buildings.some(b=>b.type==='tower')?1:0))/2],['共鸣已达成 · 继续照顾这个世界',1]];if(s.stage===4){if(!s.bridge.complete)goals[4]=['修通木桥，开发远岸矿脉',s.bridge.progress/100];else if(!s.buildings.some(b=>b.type==='factory'))goals[4]=['积累300晶石，建立第一座工厂',Math.min(1,(s.maxGems||s.gems)/300)];else if(s.pollution.some(p=>p.amount>5))goals[4]=['控制工业污染 · 拖洗地面，照顾个体',1-Math.min(1,s.pollution.reduce((a,p)=>a+p.amount,0)/500)];else goals[4]=['群落持续发展 · 在生产与环境之间平衡',1]}const g=goals[s.stage];$('goal').textContent=g[0];$('goal-progress').style.width=Math.min(100,g[1]*100)+'%';
  $('hint').textContent=tool==='build'?`点击空地放置${defs[building]?.name||'设施'} · Esc取消`:({inspect:'点击身体看状态 · 拖动移动世界',feed:'点击一个小家伙喂食 · 消耗2食物',wash:'点击清洁 · 按住身体连续擦洗',play:'点击玩球 · 愉悦+26，精力−5',harvest:'树木+3木/+1食物 · 岩石+3矿石',mop:'点击地面拖洗 · 同时清洁附近个体'})[tool];
- $('signal-level').textContent='LV.0'+(s.stage+1);if(s.creatures.length)$('dialogue').textContent=s.answered?['“谢谢。我们开始相信你了。”','“两双眼睛，看见同一个世界。”','“我们学会照顾自己。你呢？”','“我们是许多个体，也是一种声音。”','“你教会我们生长。我们选择共存。”'][s.stage]:['“这里很大。你会留下吗？”','“我们变多了。你还认得我们吗？”','“照顾，是一种可以学会的语言。”','“如果记忆相连，谁是第一个我？”','“边界还在，声音已经相连。”'][s.stage];$('respond').textContent=s.answered?'一起继续探索':'我会照顾你们';drawPortrait(c);updateIndustryUI();
+ $('signal-level').textContent='LV.0'+(s.stage+1);if(s.creatures.length)$('dialogue').textContent=s.answered?['“谢谢。我们开始相信你了。”','“两双眼睛，看见同一个世界。”','“我们学会照顾自己。你呢？”','“我们是许多个体，也是一种声音。”','“你教会我们生长。我们选择共存。”'][s.stage]:['“这里很大。你会留下吗？”','“我们变多了。你还认得我们吗？”','“照顾，是一种可以学会的语言。”','“如果记忆相连，谁是第一个我？”','“边界还在，声音已经相连。”'][s.stage];$('respond').textContent=s.answered?'一起继续探索':'我会照顾你们';drawPortrait(c);drawBadge();updateIndustryUI();
 }
 function poly(points,color){ctx.fillStyle=color;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill()}
-function tile(x,y,color,z=0){let p=project(x,y,z),k=scale();poly([[p.x,p.y-TH*k],[p.x+TW*k,p.y],[p.x,p.y+TH*k],[p.x-TW*k,p.y]],color)}
+function tile(x,y,color,z=0){let p=project(x,y,z),k=scale();poly([[p.x,p.y-TH*k-.6],[p.x+TW*k+.6,p.y],[p.x,p.y+TH*k+.6],[p.x-TW*k-.6,p.y]],color)}
 function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h))}
-function tree(p,k,fruit=false,small=false){const q=k*(small?.68:1);rect(p.x-4*q,p.y-25*q,8*q,28*q,'#654c32');rect(p.x+2*q,p.y-22*q,3*q,24*q,'#4d412b');const colors=fruit?['#384f25','#54773a','#78934a']:['#25472f','#36683b','#558346'];for(let j=0;j<3;j++){const w=[25,34,25][j]*q,y=p.y-(57-j*12)*q;rect(p.x-w/2,y,w,17*q,colors[j]);rect(p.x-w/2+5*q,y-5*q,w-10*q,7*q,colors[j])}rect(p.x-9*q,p.y-53*q,7*q,3*q,'#87a454');if(fruit){rect(p.x-11*q,p.y-38*q,5*q,6*q,'#d37042');rect(p.x+8*q,p.y-45*q,5*q,5*q,'#ed994f');rect(p.x+2*q,p.y-29*q,5*q,5*q,'#d87742')}}
-function rock(p,k){poly([[p.x-16*k,p.y],[p.x-11*k,p.y-16*k],[p.x+1*k,p.y-23*k],[p.x+13*k,p.y-13*k],[p.x+17*k,p.y],[p.x,p.y+6*k]],'#76877b');poly([[p.x-11*k,p.y-16*k],[p.x+1*k,p.y-23*k],[p.x+8*k,p.y-11*k],[p.x-2*k,p.y-6*k]],'#b5c1a2');rect(p.x+1*k,p.y-12*k,5*k,6*k,'#99d5c4');rect(p.x+6*k,p.y-4*k,5*k,4*k,'#629891')}
-// Silhouette follows official gameplay stills: tuft, floppy ears, yellow head, cyan shorts.
-// State-to-pose animation is interpretive; exact original animation frames are not available.
+function tree(p,k,fruit=false,small=false){
+ const q=k*(small?.7:1),x=p.x,y=p.y;
+ const r=(a,b,w,h,c)=>rect(x+a*q,y+b*q,w*q,h*q,c);
+ const blob=(cx,cy,w,h,color)=>{for(let a=-w/2;a<w/2;a+=4)for(let b=-h/2;b<h/2;b+=4)if((a*a)/(w*w/4)+(b*b)/(h*h/4)<1)r(cx+a,cy+b,4,4,color)};
+ blob(1,3,52,17,'#144a3970');r(-7,-54,13,57,'#47654c');r(-7,-50,4,48,'#638367');r(4,-48,3,49,'#2b5341');r(-15,-54,8,6,'#3d664e');r(6,-63,9,7,'#3d664e');
+ blob(-8,-54,44,46,'#145b40');blob(11,-70,44,49,'#175b40');blob(-4,-87,38,36,'#206d46');
+ blob(-11,-60,38,41,'#31854e');blob(10,-75,36,44,'#348750');blob(-7,-89,31,30,'#409653');
+ blob(-16,-69,23,23,'#52a75a');blob(6,-85,26,27,'#429b50');blob(-7,-97,17,14,'#69ad60');
+ for(let i=0;i<13;i++){const a=((i*17)%43)-21,b=-45-((i*13)%46);r(a,b,4,5,i%3?'#246f44':'#4f9654')}
+ if(fruit){for(const [a,b] of [[-15,-67],[10,-79],[-3,-48],[17,-59]]){r(a,b,6,7,'#b23b2f');r(a,b,4,3,'#e66540');r(a+3,b-2,2,2,'#435d35')}}
+}
+function rock(p,k){
+ const blocks=[[-20,-3,24,25],[-2,-8,26,33],[14,2,19,21]];
+ for(const [x,y,w,h] of blocks){poly([[p.x+x*k,p.y+y*k],[p.x+(x-3)*k,p.y+(y-h*.7)*k],[p.x+(x+w*.25)*k,p.y+(y-h)*k],[p.x+(x+w*.85)*k,p.y+(y-h*.86)*k],[p.x+(x+w)*k,p.y+(y-h*.3)*k],[p.x+(x+w*.8)*k,p.y+(y+3)*k]],'#234758');poly([[p.x+(x-3)*k,p.y+(y-h*.7)*k],[p.x+(x+w*.25)*k,p.y+(y-h)*k],[p.x+(x+w*.85)*k,p.y+(y-h*.86)*k],[p.x+(x+w*.38)*k,p.y+(y-h*.55)*k]],'#78a49e');rect(p.x+(x+w*.2)*k,p.y+(y-h*.6)*k,5*k,h*.45*k,'#4f8e8d');rect(p.x+(x+w*.2)*k,p.y+(y-h*.32)*k,10*k,4*k,'#6b9c95')}
+}
 function pixelCreature(context,x,y,k,c,t,portrait=false){
  const st=stateOf(c).key,phase=t*7+c.seed,moving=c.behavior==='walking'&&c.actionTime<=0,sleep=st==='sleeping',joy=st==='happy'||st==='playing',washing=st==='washing';
  const baby=c.age<18&&c.id>1;if(baby&&!portrait)k*=.82;
@@ -216,18 +238,22 @@ function pixelCreature(context,x,y,k,c,t,portrait=false){
  const dirt=100-c.clean;const spots=[[-11,-19,5,4],[8,-30,4,5],[-4,-12,5,3],[-10,-29,4,3],[7,-16,5,4],[-5,-34,5,3],[11,-23,3,4],[-8,-7,4,3]];
  for(let i=0;i<spots.length;i++){if(dirt>16+i*10){const [a,b,w,h]=spots[i];r(a,b,w,h,i%2?'#a18343':'#88783b')}}
  const blink=((t+c.seed)%4.7)>.0&&((t+c.seed)%4.7)<.12;
+ const back=!portrait&&moving&&(c.tx+c.ty<c.x+c.y-.15);
  const eyesClosed=sleep||blink||st==='playing';
+ if(!back){
  if(eyesClosed){r(-8,-24,6,2,ink);r(3,-24,6,2,ink);if(joy){r(-9,-22,2,2,ink);r(8,-22,2,2,ink)}}else{
    r(-9,-28,7,11,'#fffbe3');r(2,-28,7,11,'#fffbe3');r(-8,-30,5,2,'#fffbe3');r(3,-30,5,2,'#fffbe3');
    const look=st==='eating'?1:Math.round(Math.sin(t*.7+c.seed));const pupilH=st==='tired'||st==='sick'?4:6;
    r(-7+look,-25,3,pupilH,ink);r(4+look,-25,3,pupilH,ink);r(-6+look,-25,1,2,'#fffdf0');r(5+look,-25,1,2,'#fffdf0');
    if(st==='tired'||st==='sick'||st==='bored'){r(-9,-29,7,5,shade);r(2,-29,7,5,shade)}
  }
- if(st==='sad'||st==='bored'||st==='sick'){r(-3,-14,5,2,ink);r(-5,-12,2,2,ink);r(2,-12,2,2,ink);r(-10,-31,3,2,outline);r(7,-31,3,2,outline)}
+ if(st==='singing'){r(-5,-15,9,7,ink);r(-3,-9,5,2,'#ad775a')}
+ else if(st==='sad'||st==='bored'||st==='sick'){r(-3,-14,5,2,ink);r(-5,-12,2,2,ink);r(2,-12,2,2,ink);r(-10,-31,3,2,outline);r(7,-31,3,2,outline)}
  else if(st==='hungry'||st==='starving'){r(-2,-15,4,st==='starving'?6:4,ink);r(-1,-14,2,2,'#d59b69');if(st==='starving')r(10,-21+(t*3)%5,2,4,'#99d4d0')}
  else if(st==='eating'){r(-3,-15,6,Math.sin(t*13)>0?4:2,ink);r(0,-15,2,2,'#dba073')}
  else if(joy){r(-5,-15,2,2,ink);r(4,-15,2,2,ink);r(-3,-13,7,2,ink);r(-10,-16,3,2,'#f3a174');r(8,-16,3,2,'#f3a174')}
  else{r(-2,-14,4,2,ink)}
+ }else{r(-9,-28,18,14,gold);r(-7,-30,12,3,light);r(-7,-10,14,7,'#389bae')}
  if((c.exposure||0)>35){r(-12,-19,4,4,'#96719b');r(7,-29,5,5,'#816a96')}
  if(st==='filthy'&&!washing){for(let i=0;i<3;i++){const fx=Math.sin(t*3+i*2)*21,fy=-29+Math.cos(t*2+i*3)*11;r(fx,fy,2,2,'#424b2b');r(fx+2,fy-1,2,1,'#a6b781')}}
  if(sleep){r(-8,-16,5,2,shade);context.fillStyle='#dce9cf';context.font=`bold ${Math.max(10,k*7)}px monospace`;context.fillText('z',x+14*k,y+(-35-(t*5)%8)*k)}
@@ -237,22 +263,20 @@ function pixelCreature(context,x,y,k,c,t,portrait=false){
  if(st==='newborn'||st==='splitting'){for(let i=0;i<4;i++){const a=t*2+i*Math.PI/2;r(Math.cos(a)*23,-18+Math.sin(a)*22,2,4,'#fff3ae')}}
 }
 function drawStateBubble(c,p,k){
- const st=stateOf(c),warn=warnings(c);if(c.id!==selected&&!warn.length)return;
+ const st=stateOf(c),warn=warnings(c);if(!warn.length&&($('detail-panel').hidden||c.id!==selected))return;
  const label=st.label,w=Math.max(38,label.length*12+14),bx=Math.round(p.x-w/2),by=Math.round(p.y-60*k-17);
  ctx.fillStyle=st.tone==='danger'?'#713e2e':'#263c2fea';ctx.fillRect(bx,by,w,21);ctx.fillStyle=st.tone==='danger'?'#ffba88':'#eedfb0';ctx.fillRect(p.x-2,by+21,4,3);ctx.font='12px "Noto Sans CJK SC", "Microsoft Yahei", sans-serif';ctx.textAlign='center';ctx.fillText(label,p.x,by+15);ctx.textAlign='start';
- if(c.id===selected){const vals=[c.food,c.clean,c.happy];vals.forEach((v,i)=>{const x=p.x-18+i*13;rect(x,p.y+11*k,11,3,'#2d4935');rect(x,p.y+11*k,11*v/100,3,v<30?'#e98757':['#e9c466','#7bd2c2','#b7d879'][i])})}
+ if(c.id===selected&&!$('detail-panel').hidden){const vals=[c.food,c.clean,c.happy];vals.forEach((v,i)=>{const x=p.x-18+i*13;rect(x,p.y+11*k,11,3,'#2d4935');rect(x,p.y+11*k,11*v/100,3,v<30?'#e98757':['#e9c466','#7bd2c2','#b7d879'][i])})}
 }
 function structure(b,p,k,t){const r=(x,y,w,h,c)=>rect(p.x+x*k,p.y+y*k,w*k,h*k,c);tile(b.x,b.y,'#819663',1);if(b.type==='orchard'){tree({...p,x:p.x-9*k},k,true);tree({...p,x:p.x+16*k,y:p.y+7*k},k,true,true);r(-26,5,52,3,'#ad9360');r(-26,0,3,11,'#d0b774');r(23,0,3,11,'#d0b774')}if(b.type==='bath'){poly([[p.x-25*k,p.y-12*k],[p.x,p.y-24*k],[p.x+26*k,p.y-11*k],[p.x+26*k,p.y+1*k],[p.x,p.y+14*k],[p.x-25*k,p.y+1*k]],'#acbfa5');poly([[p.x-20*k,p.y-10*k],[p.x,p.y-19*k],[p.x+20*k,p.y-9*k],[p.x,p.y+1*k]],'#67b9af');r(-9,-9,12,2,'#bbecda');r(6,-5,6,2,'#a0d8cc')}if(b.type==='play'){r(-3,-47,6,45,'#a58b50');poly([[p.x-26*k,p.y-26*k],[p.x,p.y-49*k],[p.x+27*k,p.y-25*k]],'#ba7245');poly([[p.x,p.y-49*k],[p.x+8*k,p.y-25*k],[p.x-8*k,p.y-25*k]],'#e7ce74');r(-22,-25,3,26,'#846c40');r(20,-25,3,26,'#846c40');r(-26,0,53,6,'#cfba70');r(-19,-8,12,8,'#769d9a');r(9,-9,10,9,'#e5a066')}if(b.type==='nest'){r(-23,-29,46,32,'#ac8b52');r(2,-29,21,32,'#7f6a40');poly([[p.x-29*k,p.y-29*k],[p.x,p.y-54*k],[p.x+29*k,p.y-29*k]],'#ad6840');poly([[p.x,p.y-54*k],[p.x+29*k,p.y-29*k],[p.x+5*k,p.y-29*k]],'#7c5034');r(-8,-18,13,21,'#354532');r(-19,-20,7,8,'#ebd57a');r(12,-18,6,7,'#dac779')}if(b.type==='mine'){rock({...p,x:p.x-12*k},k);r(-10,-36,30,40,'#6d6550');r(-4,-30,18,32,'#243b31');r(-12,-38,34,6,'#a58a57');r(-13,-36,5,43,'#ae985f');r(18,-36,5,43,'#917949');r(0,-8,8,8,'#9ecbb0');r(6,-14,6,8,'#7bbaab')}if(b.type==='factory'){r(-26,-30,52,35,'#737573');r(1,-30,25,35,'#4e5b5b');poly([[p.x-29*k,p.y-30*k],[p.x-7*k,p.y-49*k],[p.x+29*k,p.y-30*k]],'#656073');r(-20,-27,13,10,'#d49c48');r(8,-27,12,10,'#d49c48');r(-6,-15,13,19,'#303d39');r(17,-63,9,36,'#827c72');r(15,-65,13,5,'#a49d85');if((b.level||1)===2){r(-24,-60,8,31,'#827c72');r(-26,-62,12,5,'#a49d85')}if(b.running!==false&&s.ore>0){for(let i=0;i<3;i++){const rise=(t*9+i*10)%32;r(15+Math.sin(t+i)*4,-67-rise,9+rise/4,7+rise/4,'#82748890')}}}if(pollutionAt(b)>20){r(-12,-14,9,5,'#8b648e');r(8,-21,7,5,'#74557e')}if(b.type==='tower'){r(-15,0,30,7,'#747d69');r(-10,-69,20,70,'#d7ddba');r(3,-69,7,70,'#8aaf9b');r(-15,-72,30,9,'#e6e7c7');r(-7,-49,5,16,'#294b3f');r(2,-29,5,19,'#294b3f');r(-5,-62,10,5,'#a5e2ae');if(s.echo){ctx.strokeStyle='#c5efaf88';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(p.x,p.y-78*k,(18+Math.sin(t*2)*4)*k,8*k,0,0,Math.PI*2);ctx.stroke()}}}
-function draw(t){ctx.clearRect(0,0,size.w,size.h);ctx.fillStyle='#1e4036';ctx.fillRect(0,0,size.w,size.h);const k=scale();for(let i=0;i<60;i++){let x=((i*173)%997)/997*size.w,y=((i*97)%631)/631*size.h;rect(x,y,2,1,'#345546')}
-for(let sum=0;sum<N*2;sum++)for(let x=0;x<N;x++){let y=sum-x;if(y<0||y>=N)continue;const type=terrain(x,y);if(type==='void')continue;let p=project(x,y);if(terrain(x+1,y)==='void'||terrain(x,y+1)==='void'){poly([[p.x-TW*k,p.y],[p.x,p.y+TH*k],[p.x+TW*k,p.y],[p.x+TW*k,p.y+15*k],[p.x,p.y+(TH+15)*k],[p.x-TW*k,p.y+15*k]],'#4b6240');}if(type==='water'){tile(x,y,['#417a70','#438176','#467f73'][(x+y)%3]);const wave=Math.sin(t*1.4+x+y);rect(p.x-9*k+wave*2*k,p.y,13*k,2*k,'#679e89')}else{tile(x,y,['#6b8646','#6e8948','#718a49','#6e8645'][(x*17+y*11)%4]);if((x*3+y*7)%5===0){rect(p.x-10*k,p.y,2*k,3*k,'#8ca05c');rect(p.x-6*k,p.y-2*k,2*k,4*k,'#5e793f')}if((x*29+y*11)%29===0){rect(p.x+9*k,p.y,2*k,2*k,'#d3c57a');rect(p.x+13*k,p.y+1*k,2*k,2*k,'#e1dbaa')}}}
-// A quiet worn path through the living world.
-for(let i=6;i<15;i++){tile(i,11,'#8b9361');if(i%2===0){let p=project(i,11);rect(p.x-8*k,p.y,10*k,2*k,'#9da373')}}
+function draw(t){ctx.clearRect(0,0,size.w,size.h);ctx.fillStyle='#154b36';ctx.fillRect(0,0,size.w,size.h);const k=scale();for(let i=0;i<60;i++){let x=((i*173)%997)/997*size.w,y=((i*97)%631)/631*size.h;rect(x,y,2,1,'#345546')}
+for(let sum=0;sum<N*2;sum++)for(let x=0;x<N;x++){let y=sum-x;if(y<0||y>=N)continue;const type=terrain(x,y);if(type==='void')continue;let p=project(x,y);if(terrain(x+1,y)==='void'||terrain(x,y+1)==='void'){poly([[p.x-TW*k,p.y],[p.x,p.y+TH*k],[p.x+TW*k,p.y],[p.x+TW*k,p.y+15*k],[p.x,p.y+(TH+15)*k],[p.x-TW*k,p.y+15*k]],'#25533d');}if(type==='water'){tile(x,y,['#14619a','#17588b','#1a65a3'][(x+y)%3]);const wave=Math.sin(t*1.4+x+y);rect(p.x-9*k+wave*2*k,p.y,13*k,2*k,'#367eb0')}else{tile(x,y,['#31764c','#3b8052','#347c4e','#408157'][(Math.floor(x/2)*7+Math.floor(y/2)*3)%4]);if((x*3+y*7)%5===0){rect(p.x-10*k,p.y,2*k,3*k,'#51905c');rect(p.x-6*k,p.y-2*k,2*k,4*k,'#296b44')}if((x*29+y*11)%29===0){rect(p.x+9*k,p.y,2*k,2*k,'#d3c57a');rect(p.x+13*k,p.y+1*k,2*k,2*k,'#e1dbaa')}}}
 for(const n of nodes){const p=project(n.x,n.y);tile(n.x,n.y,'#557862');for(let i=0;i<4;i++)rect(p.x+(i*7-12)*k,p.y-(10+(i%2)*6)*k,5*k,(10+(i%2)*6)*k,['#8be3d0','#b6e5d1'][i%2])}
 for(const p of s.pollution){tile(p.x,p.y,p.amount>60?'#715078':'#83728c',1);const q=project(p.x,p.y);rect(q.x-9*k,q.y,7*k,3*k,'#a28aba');rect(q.x+6*k,q.y-5*k,4*k,4*k,'#61475f')}
 for(let x=21;x<=24;x++){const q=project(x,13);const built=s.bridge.complete||s.bridge.paid&&(x-21)/4<s.bridge.progress/100;if(built){tile(x,13,'#ae8954',3);rect(q.x-17*k,q.y-1*k,34*k,2*k,'#786041');rect(q.x-18*k,q.y-14*k,3*k,14*k,'#c4a268');rect(q.x+15*k,q.y-14*k,3*k,14*k,'#c4a268')}else{ctx.strokeStyle='#bdba8180';ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(q.x-TW*k,q.y);ctx.lineTo(q.x+TW*k,q.y);ctx.stroke();ctx.setLineDash([])}}
 if(s.echo){ctx.strokeStyle='#dfed9b66';for(const c of s.creatures){let p=project(c.x,c.y),b=s.buildings.find(b=>b.type==='tower'),q=project(b.x,b.y,60);ctx.beginPath();ctx.moveTo(p.x,p.y-15*k);ctx.lineTo(q.x,q.y);ctx.stroke()}}
-let drawables=[...s.objects.filter(o=>o.amount>0).map(o=>({...o,kind:'object'})),...s.buildings.map(b=>({...b,kind:'building'})),...s.creatures.map(c=>({...c,kind:'creature'}))].sort((a,b)=>(a.x+a.y)-(b.x+b.y));for(const o of drawables){let p=project(o.x,o.y);if(o.kind==='object'){if(o.type==='tree')tree(p,k,false,o.amount<3);else rock(p,k*(o.amount<3?.7:1))}if(o.kind==='building')structure(o,p,k,t);if(o.kind==='creature'){if(o.id===selected){ctx.strokeStyle='#f4dfa0';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y+5*k,19*k,8*k,0,0,Math.PI*2);ctx.stroke()}pixelCreature(ctx,p.x,p.y,Math.max(.8,k),o,t)}}
-for(const c of s.creatures)drawStateBubble(c,project(c.x,c.y),Math.max(.8,k));
+let drawables=[...s.objects.filter(o=>o.amount>0).map(o=>({...o,kind:'object'})),...s.buildings.map(b=>({...b,kind:'building'})),...s.creatures.map(c=>({...c,kind:'creature'}))].sort((a,b)=>(a.x+a.y)-(b.x+b.y));for(const o of drawables){let p=project(o.x,o.y);if(o.kind==='object'){if(o.type==='tree')tree(p,k,false,o.amount<3);else rock(p,k*(o.amount<3?.7:1))}if(o.kind==='building')structure(o,p,k,t);if(o.kind==='creature'){if(o.id===selected&&!$('detail-panel').hidden){ctx.strokeStyle='#f4dfa0';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y+5*k,19*k,8*k,0,0,Math.PI*2);ctx.stroke()}pixelCreature(ctx,p.x,p.y,Math.max(.6,k*.72),o,t)}}
+for(const c of s.creatures)drawStateBubble(c,project(c.x,c.y),Math.max(.6,k*.72));
 for(const p of particles){const q=project(p.x,p.y);ctx.globalAlpha=clamp(p.life/p.max,0,1);const x=q.x+p.dx*k,y=q.y+p.dy*k;if(p.type==='water'){ctx.strokeStyle='#caf6ec';ctx.lineWidth=Math.max(1,k);ctx.strokeRect(x,y,p.size*k,p.size*k)}else rect(x,y,p.size*k,p.size*k,p.type==='crumb'?'#efba6b':p.type==='birth'?'#fff5ad':'#e9d97d');ctx.globalAlpha=1}
 if(building&&hover){const x=Math.round(hover.x),y=Math.round(hover.y);if(terrain(x,y)==='grass'){ctx.globalAlpha=.65;tile(x,y,occupied(x,y)?'#c66a4c':'#d6d791',2);structure({type:building,x,y},project(x,y),k,t);ctx.globalAlpha=1}}
 for(const e of effects){const p=project(e.x,e.y,40+(2-e.life)*12);ctx.globalAlpha=clamp(e.life,0,1);ctx.font=`bold ${Math.max(12,14*k)}px monospace`;ctx.textAlign='center';ctx.fillStyle='#293d27';ctx.fillText(e.text,p.x+1,p.y+1);ctx.fillStyle=e.color;ctx.fillText(e.text,p.x,p.y);ctx.globalAlpha=1;ctx.textAlign='start'}

@@ -49,3 +49,7 @@ The latest pass adds reference-shaped floppy ears, tuft and blue shorts; varied 
 ## Bridge and industry update
 
 Deposit wood at the bridge and healthy creatures build it, opening the far shore. Build mines on glowing nodes, process ore, and unlock factories at 300 gems (Mark II at 5,000). Factories leave purple pollution that harms nearby creatures. Pause production or use the radius mop to clean up. Old local saves migrate without losing creatures or existing facilities. See the fidelity notes for verified milestones and explicitly adapted costs/rates.
+
+## Episode-first visual mode
+
+The default view now targets the game shown on-screen in *Plaything*: left 2×4 toolbar with T crest, top-right population medallion, full-screen green diamond-patch terrain and blue left-side river. Click the population badge or a creature to inspect it; T opens settings/help; the house tool opens construction. Mobile-derived expansion/industry features remain accessible under the labeled expansion tab. The permanent dashboard, goal banner and bottom dock no longer dominate the screen. Back-facing sprites and intermittent singing poses were added using inspected episode stills and a production interview as evidence. See fidelity notes for interpretation limits.
