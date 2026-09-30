@@ -33,7 +33,7 @@ Intended canonical maintenance destination: https://github.com/BartLiu0820/playt
 
 ## Verification and scope
 
-Tests cover care, splitting, exact resource targeting, construction costs, occupied placement rejection, tower requirement, orchard production, pause/speed/reset, local persistence, automated care/reproduction, and 300 simulated seconds. Browser-process launch was restricted in the build environment, so full browser UI/keyboard/touch verification remains a manual follow-up. The game world was rendered and visually inspected with offscreen Canvas.
+Tests cover care, splitting, exact resource targeting, construction costs, occupied placement rejection, tower requirement, orchard production, pause/speed/reset, local persistence, automated care/reproduction, and 600 simulated seconds. Browser-process launch was restricted in the build environment, so full browser UI/keyboard/touch verification remains a manual follow-up. The game world was rendered and visually inspected with offscreen Canvas.
 
 Includes a bounded original progression, not all official levels, tools, story, assets, or endings. Not affiliated with Netflix or Night School Studio.
 
@@ -41,3 +41,7 @@ Includes a bounded original progression, not all official levels, tools, story, 
 
 - https://www.netflix.com/tudum/articles/black-mirror-thronglets-mobile-game-news
 - https://about.netflix.com/en/news/experience-black-mirror-like-never-before-introducing-the-long-lost-game
+
+## Character-state fidelity update
+
+The latest pass adds reference-shaped floppy ears, tuft and blue shorts; varied expressions and actions; progressive grime, sponge/foam and continuous scrubbing; individual navigation/urgent-care focus; autonomous needs and resting; historical 6/10/15 population unlocks; and non-destructive old-save migration. See [fidelity notes](docs/fidelity.md) for verified references, balancing choices and remaining gaps.
