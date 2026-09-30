@@ -26,7 +26,7 @@ This project is an unofficial recreation of a bounded game loop inspired by Blac
 - Facial animation frames and emotion-to-pose mapping are original interpretations, not traced original sprite animations
 - Hunger/cleanliness/fun thresholds, decay rates, costs, splitting timer, energy and resting behavior are local balancing choices
 - This version delivers food at the apple tree rather than spawning independently collectible dropped apples
-- Original factories, purple pollution, advanced upgrades, broader map/bridge expansion, sacrifices, full story dialogs, videos, sound/music, and all endings are not implemented
+- Bone/sacrifice bridge alternatives, advanced mining tiers/super-node values, mountain rubble/TNT, full story dialogs, videos, original sound/music, and all endings are not implemented
 - No artificial consciousness: all behavior and dialogue are locally programmed
 
 ## Primary sources
@@ -40,6 +40,24 @@ This project is an unofficial recreation of a bounded game loop inspired by Blac
 
 ## Verification
 
-`node --check dist/game.js` and `node tests/smoke.cjs` pass. The deterministic harness checks 47 HTML element bindings, care and busy action transitions, exact harvest targeting, unlock/resource/occupied placement rules, pause/speed/reset, old-save migration, extinct save persistence, ten need states, targeted care, hold cleaning, resting recovery, no food charge when full, and 600 simulated seconds of automatic care/reproduction (population reached 24 without non-finite coordinates or death).
+`node --check dist/game.js` and `node tests/smoke.cjs` pass. The deterministic harness checks 58 HTML element bindings, care and busy action transitions, exact harvest targeting, unlock/resource/occupied placement rules, pause/speed/reset, old-save migration, extinct save persistence, ten need states, targeted care, hold cleaning, resting recovery, no food charge when full, and 600 simulated seconds of automatic care/reproduction (population reached 24 without non-finite coordinates or death).
 
 The renderer generated a 16-state portrait comparison and a populated-world image for visual review. This is offscreen Canvas verification, not a claim of full browser end-to-end testing. The environment blocks browser process sockets and file navigation, so native mobile touch and full browser DOM layout remain unverified here.
+
+
+## Bridge / industry pass
+
+Implemented a separate far shore with two new ore nodes, a fixed wooden bridge site, and care-prioritized autonomous bridge construction after the player deposits wood. No land-buying mechanic is used. Mining sites now must occupy glowing nodes. Rocks produce ore; the player can process ore manually into gems to avoid getting locked out before a factory unlocks. Existing mines in older saves are retained.
+
+Implemented the documented mine unlock at 50 gems, factory unlock at 300, and Factory Mark II unlock at 5,000. Here these milestones use the highest gem balance reached. Factories consume ore, produce gems, and leave purple pollution on adjacent ground/buildings. Nearby creatures visibly accumulate exposure, lose cleanliness and health, and can die if neglected. The radius mop unlocks upon pollution and cleans ground, facilities and nearby creatures. Factories can be paused/resumed and upgraded; Mark II has higher throughput and pollution. Post-resonance objectives now continue into this loop.
+
+All map geometry, wood deposit amount (60), building/upgrade purchase prices, processing ratios/timers, pollution radius/emission/damage/recovery formula, and local manual-processing fallback are adaptation choices. Official sources establish the mechanisms and unlock milestones, not those numeric values. Mines produce ore automatically here rather than simulating individual miners carrying each item. Early camera controls remain available as an accessibility/convenience deviation from the original population-4 camera unlock. This is not an exact scene-by-scene recreation.
+
+Additional primary sources:
+- Bridge construction: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/faq/1035-how-do-i-build-bridges/
+- Mines and node constraints: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/faq/1050-what-does-a-mine-do/
+- Factory unlocks and ore processing: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/faq/1053-what-does-the-factory-do/
+- Radius mop: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/faq/1055-what-does-the-mop-do/
+- Pollution removal: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/faq/1105-how-do-i-remove-clean-up-the-pollution/
+
+Additional tests pass for bridge spending/repeated clicks/construction completion, inaccessible far-shore construction, ore conversion and insufficient resources, mine-node constraints, factory throughput/pollution/illness, stopping factory production, mop cleanup, Mark II gating and upgrade costs, and visible purple-ground rendering. Fixed two issues found by testing: the original bridge entry was accidentally inside water, and the first pollution render pass was incorrectly nested under resonance-tower rendering. Rendered and inspected the corrected bridge and pollution scenes. Full browser/touch limitation remains as described above.
