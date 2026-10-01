@@ -7,7 +7,7 @@ try { ({ createCanvas } = require('@napi-rs/canvas')); const {GlobalFonts}=requi
 const source = fs.readFileSync(path.join(__dirname, '../dist/game.js'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, '../dist/index.html'), 'utf8');
 const ids = new Set([...html.matchAll(/id="([^"]+)"/g)].map(x => x[1]));
-function harness(saved, width = 1120, height = 800) {
+function harness(saved, width = 1120, height = 800, rawIntro = false) {
   let events = {}, frame, seed = 1731;
   const storage = { value: saved, getItem() { return this.value; }, setItem(k, v) { this.value = v; } };
   const noop = () => {};
@@ -33,7 +33,7 @@ function harness(saved, width = 1120, height = 800) {
   const deterministicMath = Object.create(Math);
   deterministicMath.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const context = { document, window: { addEventListener: noop }, localStorage: storage, ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frame = f, clearTimeout: noop, setTimeout: noop, console, Math: deterministicMath, Set };
-  vm.createContext(context); vm.runInContext(source, context);
+  vm.createContext(context); vm.runInContext(source, context);if(!saved&&!rawIntro)context.window.Thronglets.advance(context.window.Thronglets.animationSpec.hatch.end);
   return { api: context.window.Thronglets, el, events, storage, frame: t => frame(t) };
 }
 function seedCreature(changes = {}, world = {}) {
@@ -45,7 +45,7 @@ function seedCreature(changes = {}, world = {}) {
 function run() {
   const h = harness(), g = h.api;
   assert.equal(g.getState().creatures.length, 1);
-  g.selectTool('feed'); g.actAt(10.2, 11);
+  g.selectTool('feed');const first=g.getState().creatures[0];g.actAt(first.x,first.y);
   assert.equal(g.getState().food, 28); assert(g.getState().creatures[0].food > 95);
   assert.equal(g.stateOf(1).key, 'eating'); assert(!g.split(), 'busy creature cannot divide');
   g.advance(2.5); g.selectTool('play'); g.actAt(g.getState().creatures[0].x, g.getState().creatures[0].y);
@@ -69,7 +69,7 @@ function run() {
   // Existing v1 saves migrate without resetting progress or existing buildings.
   let legacy = seedCreature({}, { version: 1, wood: 81 }); delete legacy.creatures[0].energy;
   legacy.buildings.push({ type: 'orchard', x: 9, y: 10, t: 0 });
-  const migrated = harness(JSON.stringify(legacy)); assert.equal(migrated.api.getState().version, 5); assert.equal(migrated.api.getState().wood, 81); assert.equal(migrated.api.getState().creatures[0].energy, 90); assert(migrated.api.getState().maxPopulation >= 10);
+  const migrated = harness(JSON.stringify(legacy)); assert.equal(migrated.api.getState().version, 6); assert.equal(migrated.api.getState().wood, 81); assert.equal(migrated.api.getState().creatures[0].energy, 90); assert(migrated.api.getState().maxPopulation >= 10);
   const empty = seedCreature(); empty.creatures = []; const extinct = harness(JSON.stringify(empty)); assert.equal(extinct.api.getState().creatures.length, 0); assert(extinct.api.paused);
   // States are distinct, and care directly targets exactly one creature.
   const states = [['neutral', {}], ['happy', { happy: 96 }], ['hungry', { food: 32 }], ['starving', { food: 9 }], ['dirty', { clean: 31 }], ['filthy', { clean: 9 }], ['sad', { happy: 12 }], ['bored', { happy: 41 }], ['tired', { energy: 12 }], ['sick', { health: 21 }]];
@@ -77,7 +77,7 @@ function run() {
   const dirty = seedCreature({ clean: 12 }); dirty.creatures.push({ ...dirty.creatures[0], id: 2, x: 10.55, y: 11.2 });
   const wash = harness(JSON.stringify(dirty)); wash.api.care(1, 'wash'); assert.equal(wash.api.getState().creatures[1].clean, 12); assert.equal(wash.api.stateOf(1).key, 'washing'); assert.equal(wash.api.getState().creatures[0].clean, 37);
   const scrub = harness(JSON.stringify(seedCreature({ clean: 5 })));
-  scrub.api.selectTool('wash'); const point = scrub.api.worldPoint(10.2, 11); const pointer = { pointerId: 1, clientX: point.x, clientY: point.y - 22 };
+  scrub.api.selectTool('wash'); const scrubbingCreature=scrub.api.getState().creatures[0];const point = scrub.api.worldPoint(scrubbingCreature.x,scrubbingCreature.y); const pointer = { pointerId: 1, clientX: point.x, clientY: point.y - 22 };
   scrub.events.game.pointerdown(pointer); scrub.api.advance(2); scrub.events.game.pointerup(pointer); assert(scrub.api.getState().creatures[0].clean > 85, 'hold-to-scrub clears accumulating dirt');
   const sleepy = harness(JSON.stringify(seedCreature({ energy: 12 }))); sleepy.api.advance(.2); assert.equal(sleepy.api.stateOf(1).key, 'sleeping'); sleepy.api.advance(8); assert(sleepy.api.getState().creatures[0].energy > 45);
   const full = harness(JSON.stringify(seedCreature({ food: 100 }))); a = full.api.getState(); full.api.care(1, 'feed'); assert.equal(full.api.getState().food, a.food, 'no food charged for full creature');

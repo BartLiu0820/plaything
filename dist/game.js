@@ -1,6 +1,10 @@
 'use strict';
 (()=>{
 const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('2d'),pc=$('portrait').getContext('2d'),bc=$('badge-art').getContext('2d');
+const ANIMATION={hatch:{fall:8/30,glow:12/30,flash:14/30,crack:24/30,emerge:27/30,hop:33/30,end:47/30,hopDx:85.3,hopDy:-35.2},feed:32/30,wash:40/30,play:69/30};
+const PLAY_ROOT=[[24,0.0,0.0],[25,6.224,3.776],[26,8.0,5.776],[29,13.332,11.332],[32,18.556,17.112],[35,23.776,22.888],[37,23.776,22.888],[40,32.776,18.888],[43,41.556,14.668],[46,45.444,13.112]];
+function playOffset(t){const f=Math.floor(t*30+.0001);if(f<PLAY_ROOT[0][0])return[0,0];for(let i=1;i<PLAY_ROOT.length;i++){const a=PLAY_ROOT[i-1],b=PLAY_ROOT[i];if(f<=b[0]){const p=(f-a[0])/(b[0]-a[0]);return[a[1]+(b[1]-a[1])*p,a[2]+(b[2]-a[2])*p]}}return PLAY_ROOT.at(-1).slice(1)}
+const WASH_PATH=[[0.16,-3.16],[0.16,-3.16],[0.12,-3.16],[0.2,-3.24],[2.4,-21.96],[7.72,-34.52],[-3.68,-30.32],[-11.08,-27.52],[-13.0,-26.8],[-2.96,-32.12],[2.32,-35.28],[4.4,-36.24],[-2.96,-22.2],[-5.0,-10.28],[-3.08,-5.96],[0.24,-3.36],[0.24,-3.4],[0.2,-3.36],[0.2,-3.36],[-2.6,-18.92],[-3.0,-27.76],[3.32,-30.76],[7.04,-33.2],[8.4,-33.92],[-4.68,-34.72],[-13.44,-35.0],[-16.28,-35.32],[-6.56,-28.52],[-0.08,-18.4],[1.08,-10.12],[0.24,-3.32],[0.2,-3.28],[0.2,-3.28],[0.2,-3.28],[-0.12,-5.68],[-0.6,-7.6],[4.16,-14.6],[7.92,-18.92],[9.12,-20.72],[1.24,-19.24]];
 const N=48,MAP_H=32,MIN_Y=-10,TW=34,TH=17,SAVE='thronglets-world-v1';
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const defs={orchard:{unlock:10,name:'苹果树',icon:'♣',wood:10,gems:2,desc:'持续产粮 · 自动喂食'},bath:{unlock:6,name:'浴池',icon:'≈',wood:12,gems:4,desc:'自动清洁 · 减少疾病'},play:{unlock:15,name:'旋转木马',icon:'⚑',wood:14,gems:4,desc:'自动玩耍 · 提升快乐'},nest:{name:'巢居',icon:'⌂',wood:18,gems:5,desc:'人口上限 +8'},mine:{gemUnlock:50,name:'晶矿',icon:'◆',wood:22,gems:6,desc:'矿脉上建造 · 每9秒产4矿石'},factory:{name:'工厂',icon:'▥',wood:30,gems:20,gemUnlock:300,desc:'3矿石→12晶石 / 6秒 · 产生污染'},tower:{name:'共鸣塔',icon:'⋮',wood:40,gems:25,desc:'需 16 个体 · 集体共鸣'}};
@@ -10,7 +14,7 @@ function inPolygon(x,y,points){let inside=false;for(let i=0,j=points.length-1;i<
 const tools=[['inspect','⌖','观察'],['feed','●','喂食'],['wash','≈','清洁'],['play','✧','玩耍'],['harvest','⚒','采集'],['mop','▱','拖洗']];
 let selectedBuilding=null;
 let s,tool='inspect',building=null,selected=1,paused=false,speed=1,sound=false,audio=null,zoom=1,pan={x:0,y:0},size={w:1000,h:650},effects=[],particles=[],animationTime=0,scrubAt=0,last=0,uiClock=0,saveClock=0,toastTimer,drag=null,hover=null;
-function creature(x,y,id){return{id,x,y,tx:x,ty:y,food:75,clean:78,happy:70,health:100,energy:90,age:0,repro:0,wait:0,behavior:'idle',actionTime:0,actionTotal:0,goal:null,goalX:null,goalY:null,act:'正在观察你',seed:rand(0,6),facing:4,walkDistance:0}}
+function creature(x,y,id){return{id,x,y,tx:x,ty:y,food:75,clean:78,happy:70,health:100,energy:90,age:0,repro:0,wait:0,behavior:'idle',actionTime:0,actionTotal:0,actionClock:0,goal:null,goalX:null,goalY:null,act:'正在观察你',seed:rand(0,6),facing:4,walkDistance:0}}
 function terrain(x,y){
  if(x<0||y<MIN_Y||x>=N||y>=MAP_H)return'void';
  if(x>=4&&x<=8&&y>=-8&&y<=-5)return'grass';
@@ -27,21 +31,21 @@ function terrain(x,y){
  const center=a=>a+(a<4?8:a<8?6:a<12?8:6),edge=center(x),previous=center(Math.max(0,x-1));
  if(x<=14&&y>=Math.min(edge,previous)&&y<=Math.max(edge,previous)+1)return'water';return'grass';
 }
-function initial(){const objects=[];for(let x=1;x<N-1;x++)for(let y=MIN_Y;y<MAP_H;y++){if(y<1&&x<24)continue;if(terrain(x,y)!=='grass'||nodes.some(n=>n.x===x&&n.y===y)||Math.hypot(x-10,y-11)<3)continue;let n=(x*173+y*97)%31;if(n<5)objects.push({x,y,type:n<3?'tree':'rock',amount:8,regen:0});}return{version:5,cubeBridge:{paid:false,progress:0,complete:false},ore:0,maxGems:12,pollution:[],bridge:{paid:false,progress:0,complete:false},maxPopulation:1,time:0,wood:24,gems:12,food:30,creatures:[creature(10.2,11,1)],objects,buildings:[],nextId:2,stage:0,answered:false,storm:0,eventAt:155,autoAt:0,echo:false,log:[]}}
+function initial(){const objects=[];for(let x=1;x<N-1;x++)for(let y=MIN_Y;y<MAP_H;y++){if(y<1&&x<24)continue;if(terrain(x,y)!=='grass'||nodes.some(n=>n.x===x&&n.y===y)||Math.hypot(x-10,y-11)<3)continue;let n=(x*173+y*97)%31;if(n<5)objects.push({x,y,type:n<3?'tree':'rock',amount:8,regen:0});}return{version:6,intro:{elapsed:0,done:false},shells:[],remains:[],cubeBridge:{paid:false,progress:0,complete:false},ore:0,maxGems:12,pollution:[],bridge:{paid:false,progress:0,complete:false},maxPopulation:1,time:0,wood:24,gems:12,food:30,creatures:[creature(10.2,11,1)],objects,buildings:[],nextId:2,stage:0,answered:false,storm:0,eventAt:155,autoAt:0,echo:false,log:[]}}
 function migrate(v){
-  if(!v||![1,2,3,4,5].includes(v.version)||!Array.isArray(v.creatures)||!Array.isArray(v.objects)||!Array.isArray(v.buildings)||!Number.isFinite(v.time))return null;
+  if(!v||![1,2,3,4,5,6].includes(v.version)||!Array.isArray(v.creatures)||!Array.isArray(v.objects)||!Array.isArray(v.buildings)||!Number.isFinite(v.time))return null;
   if(v.version<5){for(let x=24;x<N;x++)for(let y=MIN_Y;y<MAP_H;y++)if((x>=31||y>=15||y<1)&&terrain(x,y)==='grass'&&(x*173+y*97)%31<5&&!nodes.some(n=>n.x===x&&n.y===y)&&!v.objects.some(o=>o.x===x&&o.y===y)&&!v.buildings.some(b=>b.x===x&&b.y===y))v.objects.push({x,y,type:(x*173+y*97)%31<3?'tree':'rock',amount:8,regen:0})}
-  v.cubeBridge=v.cubeBridge||{paid:false,progress:0,complete:false};v.mopUnlocked=!!v.mopUnlocked||!!v.pollution?.length;v.ore=Number.isFinite(v.ore)?v.ore:0;v.maxGems=Math.max(v.maxGems||0,v.gems||0);v.pollution=Array.isArray(v.pollution)?v.pollution:[];v.bridge=v.bridge||{paid:false,progress:0,complete:false};if(v.version<3){v.objects=v.objects.filter(o=>!nodes.some(n=>n.x===o.x&&n.y===o.y));for(let x=24;x<=30;x++)for(let y=7;y<=14;y++)if(terrain(x,y)==='grass'&&(x*3+y)%7===0&&!nodes.some(n=>n.x===x&&n.y===y))v.objects.push({x,y,type:'rock',amount:8,regen:0})}v.maxPopulation=Math.max(v.maxPopulation||0,v.creatures.length,...v.buildings.map(b=>defs[b.type]?.unlock||0));v.version=5;v.creatures=v.creatures.filter(c=>Number.isFinite(c.x)&&Number.isFinite(c.y)).map(c=>({...creature(c.x,c.y,c.id),...c,energy:Number.isFinite(c.energy)?clamp(c.energy,0,100):90,behavior:c.behavior||'idle',actionTime:Math.max(0,c.actionTime||0),actionTotal:Math.max(0,c.actionTotal||0),goal:c.goal||null}));return v;
+  v.intro=v.intro||{elapsed:ANIMATION.hatch.end,done:true};v.shells=Array.isArray(v.shells)?v.shells:[];v.remains=Array.isArray(v.remains)?v.remains:[];v.cubeBridge=v.cubeBridge||{paid:false,progress:0,complete:false};v.mopUnlocked=!!v.mopUnlocked||!!v.pollution?.length;v.ore=Number.isFinite(v.ore)?v.ore:0;v.maxGems=Math.max(v.maxGems||0,v.gems||0);v.pollution=Array.isArray(v.pollution)?v.pollution:[];v.bridge=v.bridge||{paid:false,progress:0,complete:false};if(v.version<3){v.objects=v.objects.filter(o=>!nodes.some(n=>n.x===o.x&&n.y===o.y));for(let x=24;x<=30;x++)for(let y=7;y<=14;y++)if(terrain(x,y)==='grass'&&(x*3+y)%7===0&&!nodes.some(n=>n.x===x&&n.y===y))v.objects.push({x,y,type:'rock',amount:8,regen:0})}v.maxPopulation=Math.max(v.maxPopulation||0,v.creatures.length,...v.buildings.map(b=>defs[b.type]?.unlock||0));v.version=6;v.creatures=v.creatures.filter(c=>Number.isFinite(c.x)&&Number.isFinite(c.y)).map(c=>({...creature(c.x,c.y,c.id),...c,energy:Number.isFinite(c.energy)?clamp(c.energy,0,100):90,behavior:c.behavior||'idle',actionTime:Math.max(0,c.actionTime||0),actionTotal:Math.max(0,c.actionTotal||0),actionClock:Number.isFinite(c.actionClock)?c.actionClock:Math.max(0,(c.actionTotal||0)-(c.actionTime||0)),goal:c.goal||null}));return v;
 }
 function load(){try{return migrate(JSON.parse(localStorage.getItem(SAVE)))||initial()}catch{return initial()}}
 
-s=load();normalizeEpisodeMap();paused=!s.creatures.length;animationTime=s.time;selected=s.creatures[0]?.id||1;
+s=load();if(!s.intro.done){const c=s.creatures[0];if(c){c.behavior='hatching';c.actionTime=ANIMATION.hatch.end-s.intro.elapsed;c.actionTotal=ANIMATION.hatch.end;c.actionClock=s.intro.elapsed;c.act='蛋壳里有了动静'}}normalizeEpisodeMap();paused=!s.creatures.length;animationTime=s.time;selected=s.creatures[0]?.id||1;
 function save(){try{localStorage.setItem(SAVE,JSON.stringify(s));$('save-status').textContent='已存档 · 此浏览器'}catch{$('save-status').textContent='浏览器未允许存档'}}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2600)}
 function beep(freq=550){if(!sound)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.setValueAtTime(freq,audio.currentTime);g.gain.setValueAtTime(.045,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.13);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.14)}catch{}}
 const capacity=()=>8+s.buildings.filter(b=>b.type==='nest').length*8;
 const average=k=>s.creatures.reduce((a,c)=>a+c[k],0)/Math.max(1,s.creatures.length);
-const canSplit=c=>c&&c.food>=65&&c.clean>=60&&c.happy>=65&&c.health>=60&&c.energy>=35&&c.actionTime<=0&&s.food>=8&&s.gems>=2&&s.creatures.length<capacity();
+const canSplit=c=>s.intro.done&&c&&c.food>=65&&c.clean>=60&&c.happy>=65&&c.health>=60&&c.energy>=35&&c.actionTime<=0&&s.food>=8&&s.gems>=2&&s.creatures.length<capacity();
 function split(c,automatic=false){if(!canSplit(c)){toast(s.creatures.length>=capacity()?'巢居已满，先建造新的巢居':'需饱食65、洁净60、快乐65、健康60、精力35以上；等当前动作结束，再消耗8食物、2晶石');return false}s.food-=8;s.gems-=2;c.food-=12;c.happy-=10;c.repro=0;setAction(c,'splitting',2.5,'正在分裂');const baby=creature(c.x,c.y,s.nextId++);const landing=[[.6,.1],[-.6,-.1],[.1,.6],[-.1,-.6]].find(([dx,dy])=>terrain(Math.round(c.x+dx),Math.round(c.y+dy))==='grass');if(landing){baby.x+=landing[0];baby.y+=landing[1];baby.tx=baby.x;baby.ty=baby.y}baby.birthFrom={x:c.x,y:c.y};setAction(baby,'newborn',3,'刚刚诞生');s.creatures.push(baby);burst(baby,'birth',18);effects.push({x:c.x,y:c.y,text:'新生命！',color:'#ffeca1',life:2});beep(850);toast(automatic?'一个新生命自然诞生了':'它把快乐分成了两份');return true}
 function setTool(t){if(t!=='inspect')$('detail-panel').hidden=true;tool=t;building=null;selectedBuilding=null;updateUI();beep(350)}
 $('buildings').innerHTML=Object.entries(defs).map(([id,d])=>`<button class="building" data-build="${id}" title="${d.desc}"><span>${d.icon} ${d.name}</span><small>${d.wood} 木 · ${d.gems} 晶</small></button>`).join('');
@@ -70,27 +74,29 @@ function normalizeEpisodeMap(){
  for(const c of s.creatures){if(terrain(Math.round(c.x),Math.round(c.y))!=='grass'){const p=nearest(c);c.x=p.x;c.y=p.y;c.tx=p.x;c.ty=p.y;c.goal=null;c.route=null}}
  for(const o of s.objects){if(terrain(o.x,o.y)!=='grass'){const p=nearest(o);o.x=p.x;o.y=p.y}}
 }
-function drawBadge(){bc.clearRect(0,0,90,65);for(const [i,x,y] of [[1,25,48],[2,47,36],[3,68,50]])pixelCreature(bc,x,y,.54,{id:1,age:100,x:0,y:0,tx:0,ty:0,food:90,clean:100,happy:75,health:100,energy:90,seed:i,behavior:'idle',actionTime:0},0,true)}
+function drawBadge(){bc.clearRect(0,0,90,65);for(const [i,x,y] of [[1,25,48],[2,47,36],[3,68,50]])pixelCreature(bc,x,y,.54,{id:0,age:100,x:0,y:0,tx:0,ty:0,food:90,clean:100,happy:75,health:100,energy:90,seed:i,behavior:'idle',actionTime:0},0,true)}
 function sing(c){if(!sound)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type='square';o.frequency.value=[220,275,330,440][c.id%4];g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.014,audio.currentTime+.035);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.45);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+.46)}catch{}}
 function currentCreature(){return s.creatures.find(c=>c.id===selected)||s.creatures[0]}
-function setAction(c,state,seconds,label){c.behavior=state;c.actionTime=seconds;c.actionTotal=seconds;c.wait=seconds;c.act=label;c.tx=c.x;c.ty=c.y;c.goal=null;c.route=null}
+function applyPlayMotion(c){if(c.behavior!=='playing'||c.playMove===false)return;const [x,y]=playOffset(c.actionClock||0),ratio=Math.max(.6,scale()*.72)/scale(),dx=x*ratio/TW,dy=y*ratio/TH,nx=c.x+(dx+dy)/2,ny=c.y+(dy-dx)/2;if(terrain(Math.round(nx),Math.round(ny))==='grass'){c.x=nx;c.y=ny;c.tx=nx;c.ty=ny}c.playMove=false}
+function setAction(c,state,seconds,label){applyPlayMotion(c);c.behavior=state;c.actionTime=seconds;c.actionTotal=seconds;c.actionClock=0;c.wait=seconds;c.act=label;c.tx=c.x;c.ty=c.y;c.goal=null;c.route=null}
 function burst(c,type,count=12){for(let i=0;i<count;i++)particles.push({x:c.x,y:c.y,dx:rand(-13,13),dy:rand(-26,-7),vx:rand(-12,12),vy:rand(-27,-7),life:rand(.6,1.4),max:1.4,type,size:rand(2,4)});if(particles.length>260)particles.splice(0,particles.length-260)}
-function stateOf(c){if(!c)return{key:'absent',label:'无个体',icon:'—',tone:'muted'};const active={singing:['轻声合唱','♪'],eating:['进食中','●'],washing:['清洁中','≈'],playing:['玩耍中','✧'],sleeping:['休息中','z'],splitting:['分裂中','✦'],newborn:['新生儿','✦']};if(c.actionTime>0&&active[c.behavior])return{key:c.behavior,label:active[c.behavior][0],icon:active[c.behavior][1],tone:'good'};if(c.health<35||((c.exposure||0)>45))return{key:'sick',label:'虚弱',icon:'!',tone:'danger'};if(c.food<18)return{key:'starving',label:'非常饥饿',icon:'●',tone:'danger'};if(c.clean<20)return{key:'filthy',label:'浑身脏污',icon:'≈',tone:'danger'};if(c.energy<25)return{key:'tired',label:'困倦',icon:'z',tone:'warn'};if(c.food<45)return{key:'hungry',label:'肚子饿了',icon:'●',tone:'warn'};if(c.clean<48)return{key:'dirty',label:'需要清洁',icon:'≈',tone:'warn'};if(c.happy<25)return{key:'sad',label:'很不开心',icon:'…',tone:'danger'};if(c.happy<50)return{key:'bored',label:'想和你玩',icon:'✧',tone:'warn'};if(c.happy>=82&&c.food>=55&&c.clean>=55)return{key:'happy',label:'心满意足',icon:'♥',tone:'good'};return{key:'neutral',label:'平静好奇',icon:'·',tone:'normal'}}
+function stateOf(c){if(!c)return{key:'absent',label:'无个体',icon:'—',tone:'muted'};if(c.behavior==='dead')return{key:'dead',label:'已离世',icon:'×',tone:'muted'};if(!s.intro.done&&c.id===1)return{key:'hatching',label:'正在孵化',icon:'◌',tone:'good'};const active={singing:['轻声合唱','♪'],eating:['进食中','●'],washing:['清洁中','≈'],playing:['玩耍中','✧'],sleeping:['休息中','z'],splitting:['分裂中','✦'],newborn:['新生儿','✦']};if(c.actionTime>0&&active[c.behavior])return{key:c.behavior,label:active[c.behavior][0],icon:active[c.behavior][1],tone:'good'};if(c.health<35||((c.exposure||0)>45))return{key:'sick',label:'虚弱',icon:'!',tone:'danger'};if(c.food<18)return{key:'starving',label:'非常饥饿',icon:'●',tone:'danger'};if(c.clean<20)return{key:'filthy',label:'浑身脏污',icon:'≈',tone:'danger'};if(c.energy<25)return{key:'tired',label:'困倦',icon:'z',tone:'warn'};if(c.food<45)return{key:'hungry',label:'肚子饿了',icon:'●',tone:'warn'};if(c.clean<48)return{key:'dirty',label:'需要清洁',icon:'≈',tone:'warn'};if(c.happy<25)return{key:'sad',label:'很不开心',icon:'…',tone:'danger'};if(c.happy<50)return{key:'bored',label:'想和你玩',icon:'✧',tone:'warn'};if(c.happy>=82&&c.food>=55&&c.clean>=55)return{key:'happy',label:'心满意足',icon:'♥',tone:'good'};return{key:'neutral',label:'平静好奇',icon:'·',tone:'normal'}}
 function warnings(c){if(!c)return[];return[c.food<35?'饿了':null,c.clean<35?'脏了':null,c.happy<35?'不开心':null,c.energy<25?'困了':null,c.health<40?'虚弱':null,(c.exposure||0)>40?'受污染':null].filter(Boolean)}
 function care(c,kind,scrub=false,automatic=false){
-  if(!c)return false;if(paused){toast('世界已暂停，按 ▶ 继续');return false}if(['newborn','splitting'].includes(c.behavior)&&c.actionTime>0){toast('等它完成诞生或分裂，再照顾它');return false}
+  if(!c)return false;if(!s.intro.done){toast('蛋壳正在裂开，等它跳出来');return false}if(paused){toast('世界已暂停，按 ▶ 继续');return false}if(['newborn','splitting'].includes(c.behavior)&&c.actionTime>0){toast('等它完成诞生或分裂，再照顾它');return false}
   if(!automatic)selected=c.id;
-  if(kind==='feed'){if(c.food>=98){toast('它已经吃饱了');return false}if(s.food<2){toast('食物不足，采集树木或建造果园');return false}s.food-=2;c.food=clamp(c.food+28,0,100);setAction(c,'eating',2.2,'抱着苹果慢慢咀嚼');burst(c,'crumb',7)}
-  if(kind==='wash'){if(c.clean>=99){if(!scrub)toast('已经洗得干干净净');return false}c.clean=clamp(c.clean+(scrub?9:25),0,100);c.happy=clamp(c.happy+1,0,100);setAction(c,'washing',1.1,'正在冲洗泥污');burst(c,'water',scrub?7:14)}
-  if(kind==='play'){if(c.energy<18){toast('它太累了，先让它休息一会儿');return false}c.happy=clamp(c.happy+26,0,100);c.energy=clamp(c.energy-5,0,100);setAction(c,'playing',2.8,'追逐小球，开心蹦跳');burst(c,'joy',8)}
+  if(kind==='feed'){if(c.food>=98){toast('它已经吃饱了');return false}if(s.food<2){toast('食物不足，采集树木或建造果园');return false}s.food-=2;c.food=clamp(c.food+28,0,100);setAction(c,'eating',ANIMATION.feed,'抱着苹果慢慢咀嚼');burst(c,'crumb',7)}
+  if(kind==='wash'){if(c.clean>=99){if(!scrub)toast('已经洗得干干净净');return false}c.clean=clamp(c.clean+(scrub?9:25),0,100);c.happy=clamp(c.happy+1,0,100);if(scrub&&c.behavior==='washing'&&c.actionTime>0)c.actionTime=Math.max(c.actionTime,.5);else setAction(c,'washing',ANIMATION.wash,'正在冲洗泥污');burst(c,'water',scrub?7:14)}
+  if(kind==='play'){if(c.energy<18){toast('它太累了，先让它休息一会儿');return false}c.happy=clamp(c.happy+26,0,100);c.energy=clamp(c.energy-5,0,100);setAction(c,'playing',ANIMATION.play,'追逐小球，开心蹦跳');const [dx,dy]=playOffset(ANIMATION.play),ratio=Math.max(.6,scale()*.72)/scale(),nx=c.x+(dx/TW+dy/TH)*ratio/2,ny=c.y+(dy/TH-dx/TW)*ratio/2;c.playMove=terrain(Math.round(nx),Math.round(ny))==='grass';burst(c,'joy',8)}
   if(kind==='rest'){setAction(c,'sleeping',10,'蜷起来打个小盹');c.goal=null}
   if(!scrub&&!automatic)beep(kind==='play'?780:kind==='wash'?470:520);if(!automatic)updateUI();return true;
 }
-function hitCreature(p){const k=Math.max(.6,scale()*.72);return s.creatures.filter(c=>{const q=project(c.x,c.y);return Math.abs(p.x-q.x)<20*k&&p.y>q.y-39*k&&p.y<q.y+9*k}).sort((a,b)=>(b.x+b.y)-(a.x+a.y))[0]}
+function visualPoint(c){const p=project(c.x,c.y),k=Math.max(.6,scale()*.72);if(c.behavior==='playing'&&c.actionTime>0){if(c.playMove!==false){const [dx,dy]=playOffset(c.actionClock||0);p.x+=dx*k;p.y+=dy*k}const t=c.actionClock||0;p.y-=(t>=12/30&&t<15/30?9.1:t>=15/30&&t<18/30?32.7:0)*k}return p}
+function hitCreature(p){const k=Math.max(.6,scale()*.72);return s.creatures.filter(c=>{const q=visualPoint(c);return Math.abs(p.x-q.x)<20*k&&p.y>q.y-39*k&&p.y<q.y+9*k}).sort((a,b)=>(b.x+b.y)-(a.x+a.y))[0]}
 function action(p){
   const pos=unproject(p.x,p.y),x=Math.round(pos.x),y=Math.round(pos.y);let near=hitCreature(p)||s.creatures.filter(c=>dist(c,pos)<1.35).sort((a,b)=>dist(a,pos)-dist(b,pos))[0];
   if(tool==='inspect'){if(dist(pos,{x:6,y:-6})<1.8){toast(s.cubeBridge.complete?'方块平台：来自手机版第一幕的视觉地标':'修通北侧木桥，可以走到方块平台');return}if(near){selected=near.id;openPanel('creature');updateUI()}else{const b=s.buildings.find(b=>dist(b,pos)<1);if(b){selectedBuilding=b;openPanel('advanced');updateUI();toast(defs[b.type].name+'：'+defs[b.type].desc)}}return}
-  if(paused){toast('世界已暂停，按 ▶ 继续');return}if(tool==='feed'||tool==='wash'||tool==='play'){if(!near){toast('点击小家伙的身体，或在名片里直接照顾');return}care(near,tool);return}
+  if(!s.intro.done){toast('蛋壳正在裂开，等它跳出来');return}if(paused){toast('世界已暂停，按 ▶ 继续');return}if(tool==='feed'||tool==='wash'||tool==='play'){if(!near){toast('点击小家伙的身体，或在名片里直接照顾');return}care(near,tool);return}
   if(y<1&&x<24&&!s.cubeBridge.complete){toast('先修通北侧木桥，再探索方块平台');return}
   if(x>=24&&!s.bridge.complete){toast('先在桥头放好木材，让群落修通木桥');return}
   if(tool==='mop'){mop(pos);return}
@@ -152,7 +158,7 @@ function findRoute(start,end){
  }return[];
 }
 function update(dt){
- s.time+=dt;animationTime+=dt;s.maxGems=Math.max(s.maxGems||0,s.gems);s.bridge.workers=0;s.cubeBridge.workers=0;updateIndustry(dt);s.maxPopulation=Math.max(s.maxPopulation||0,s.creatures.length);
+ s.time+=dt;animationTime+=dt;if(!s.intro.done){s.intro.elapsed=Math.min(ANIMATION.hatch.end,s.intro.elapsed+dt);const c=s.creatures[0];if(c){c.behavior='hatching';c.actionClock=s.intro.elapsed;c.actionTotal=ANIMATION.hatch.end;c.actionTime=ANIMATION.hatch.end-s.intro.elapsed;c.act='蛋壳里有了动静'}if(s.intro.elapsed>=ANIMATION.hatch.end){s.intro.done=true;if(c){s.shells.push({x:c.x,y:c.y,life:12});const ratio=Math.max(.6,scale()*.72)/scale(),dx=ANIMATION.hatch.hopDx*ratio/TW,dy=ANIMATION.hatch.hopDy*ratio/TH;c.x+=(dx+dy)/2;c.y+=(dy-dx)/2;c.tx=c.x;c.ty=c.y;c.behavior='idle';c.actionTime=0;c.wait=1.2;c.act='第一次看见这个世界';burst(c,'birth',12)}toast('它出生了。试试喂食、清洁和玩球。')}return}s.shells.forEach(r=>r.life-=dt);s.shells=s.shells.filter(r=>r.life>0);s.remains.forEach(r=>r.life-=dt);s.remains=s.remains.filter(r=>r.life>0);s.maxGems=Math.max(s.maxGems||0,s.gems);s.bridge.workers=0;s.cubeBridge.workers=0;updateIndustry(dt);s.maxPopulation=Math.max(s.maxPopulation||0,s.creatures.length);
  if(drag?.scrubbing&&s.time-scrubAt>.18){const c=s.creatures.find(c=>c.id===drag.scrubbing);if(c&&hitCreature({x:drag.px,y:drag.py})?.id===c.id)care(c,'wash',true);scrubAt=s.time}
  if(s.time>s.eventAt){s.storm=22;s.eventAt=s.time+rand(140,220);toast('风暴来了！脏污积累加快，巢居可以提供庇护')}s.storm=Math.max(0,s.storm-dt);
  for(const o of s.objects){if(o.amount<8){o.regen+=dt;if(o.regen>24){o.amount++;o.regen=0}}}
@@ -162,12 +168,12 @@ function update(dt){
    const bad=c.food<15||c.clean<10;c.health=clamp(c.health+dt*(bad?-.65:(c.food>45&&c.clean>40?.25:.04)),0,100);
    if(s.storm&&s.buildings.filter(b=>b.type==='nest').length*8<s.creatures.length)c.happy=clamp(c.happy-dt*.12,0,100);
    const exposure=pollutionAt(c);c.exposure=clamp((c.exposure||0)+dt*(exposure>12?exposure*.04:-2),0,100);if(exposure>12){c.clean=clamp(c.clean-dt*exposure*.008,0,100);c.health=clamp(c.health-dt*exposure*.009,0,100)}
-   if(c.health<=0){s.creatures=s.creatures.filter(v=>v.id!==c.id);effects.push({x:c.x,y:c.y,text:'再见…',color:'#c8d5b9',life:3});toast('一个小家伙因长期疏于照顾离开了');continue}
+   if(c.health<=0){s.remains.push({...c,behavior:'dead',life:45});if(s.remains.length>64)s.remains.shift();s.creatures=s.creatures.filter(v=>v.id!==c.id);effects.push({x:c.x,y:c.y,text:'再见…',color:'#c8d5b9',life:3});toast('一个小家伙因长期疏于照顾离开了');continue}
    if(c.actionTime>0){
-     c.actionTime=Math.max(0,c.actionTime-dt);c.wait=c.actionTime;
+     c.actionClock=(c.actionClock||0)+dt;c.actionTime=Math.max(0,c.actionTime-dt);c.wait=c.actionTime;
      if(c.behavior==='sleeping'){c.energy=clamp(c.energy+dt*5,0,100);if(c.food<15)c.actionTime=0}
      if(c.behavior==='washing'&&Math.random()<dt*7)burst(c,'water',1);
-     if(c.actionTime===0){c.behavior='idle';c.birthFrom=null;c.act='抬头看看周围';c.wait=.4}
+     if(c.actionTime===0){applyPlayMotion(c);c.behavior='idle';c.birthFrom=null;c.act='抬头看看周围';c.wait=.4}
      continue;
    }
    if(['bridge','cubeBridge'].includes(c.goal)&&(c.food<45||c.clean<45||c.happy<40||c.energy<25)){c.goal=null;c.route=null}
@@ -208,13 +214,13 @@ function updateUI(){
  $('creature-index').textContent=c?`${s.creatures.findIndex(v=>v.id===c.id)+1} / ${s.creatures.length}`:'0 / 0';
  $('life-detail').textContent=c?`${c.age<18&&c.id>1?'幼体':'个体'} · 存活 ${Math.floor(c.age/60)}分${Math.floor(c.age%60)}秒`:'请选择重新开始';
  $('needs').innerHTML=[['food','饱食'],['clean','洁净'],['happy','愉悦'],['energy','精力'],['health','健康']].map(([key,label])=>{const n=Math.round(c?.[key]||0),color=n<30?'#bd5939':n<60?'#a18234':key==='clean'?'#428f8d':key==='energy'?'#788653':'#568047';return`<div class="need"><span>${label}</span><div class="meter" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${n}"><i style="width:${n}%;background:${color}"></i></div><b>${n}%</b></div>`}).join('');
- const warn=warnings(c);$('care-advice').textContent=!c?'群落已消失':c.actionTime>0?({eating:'咀嚼时身体会轻轻晃动',washing:'按住它继续擦洗，直到泥污消失',playing:'玩球恢复愉悦，也会消耗精力',singing:'它们用断续的声音回应彼此',sleeping:'休息会恢复精力，喂食可唤醒',splitting:'一个生命，正在成为两个',newborn:'给新生命一点适应的时间'})[c.behavior]||c.act:warn.length?'需要关注：'+warn.join('、'):c.clean<75?'身上沾了一点泥，可以帮它洗洗':'状态良好，可以继续探索或繁衍';
+ const warn=warnings(c);$('care-advice').textContent=!c?'群落已消失':!s.intro.done?'蛋落地、发光、裂开，然后它会跳出蛋壳':c.actionTime>0?({eating:'咀嚼时身体会轻轻晃动',washing:'按住它继续擦洗，直到泥污消失',playing:'玩球恢复愉悦，也会消耗精力',singing:'它们用断续的声音回应彼此',sleeping:'休息会恢复精力，喂食可唤醒',splitting:'一个生命，正在成为两个',newborn:'给新生命一点适应的时间'})[c.behavior]||c.act:warn.length?'需要关注：'+warn.join('、'):c.clean<75?'身上沾了一点泥，可以帮它洗洗':'状态良好，可以继续探索或繁衍';
  const count=s.creatures.filter(v=>warnings(v).length).length;$('colony-alert').textContent=count?`${count} 个体需要照顾 · 定位`:'所有个体状态稳定';$('colony-alert').classList.toggle('urgent',count>0);$('colony-alert').disabled=!count;
  $('split').disabled=!c;$('split-detail').textContent=c&&c.actionTime>0?'等待当前动作完成':'8 食物 · 2 晶石';
  document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('active',b.dataset.tool===tool);b.setAttribute('aria-pressed',b.dataset.tool===tool);if(b.dataset.tool==='mop'){b.classList.toggle('locked',!s.mopUnlocked);b.title=s.mopUnlocked?'清除范围内地面、设施与个体污染':'出现工厂污染后解锁'}});
  document.querySelectorAll('[data-build]').forEach(b=>{b.classList.toggle('active',b.dataset.build===building);b.setAttribute('aria-pressed',b.dataset.build===building);const d=defs[b.dataset.build],locked=(s.maxPopulation||s.creatures.length)<(d.unlock||0)||(d.gemUnlock&&(s.maxGems||s.gems)<d.gemUnlock);b.classList.toggle('locked',locked);b.title=locked?`达到${d.gemUnlock||d.unlock}${d.gemUnlock?'晶石':'个体'}解锁；${d.desc}`:d.desc;const info=b.querySelector?.('small');if(info)info.textContent=locked?d.gemUnlock?`${d.gemUnlock}晶石解锁`:`${d.unlock}个体解锁`:`${d.wood}木 · ${d.gems}晶`});
  const goals=[['照顾它，满足需要后分裂',c?Math.min(c.food/65,c.clean/60,c.happy/65,1):0],['6个体解锁浴池 · 先照顾和繁衍',(Math.min(6,s.creatures.length)/6+(s.buildings.some(b=>b.type==='bath')?1:0))/2],['10个体解锁苹果树 · 建巢扩大容量',(Math.min(10,s.creatures.length)/10+(s.buildings.some(b=>b.type==='orchard')?1:0))/2],['15个体解锁旋转木马 · 16个体建共鸣塔',(Math.min(16,s.creatures.length)/16+(s.buildings.some(b=>b.type==='tower')?1:0))/2],['共鸣已达成 · 继续照顾这个世界',1]];if(s.stage===4){if(!s.bridge.complete)goals[4]=['修通木桥，开发远岸矿脉',s.bridge.progress/100];else if(!s.buildings.some(b=>b.type==='factory'))goals[4]=['积累300晶石，建立第一座工厂',Math.min(1,(s.maxGems||s.gems)/300)];else if(s.pollution.some(p=>p.amount>5))goals[4]=['控制工业污染 · 拖洗地面，照顾个体',1-Math.min(1,s.pollution.reduce((a,p)=>a+p.amount,0)/500)];else goals[4]=['群落持续发展 · 在生产与环境之间平衡',1]}const g=goals[s.stage];$('goal').textContent=g[0];$('goal-progress').style.width=Math.min(100,g[1]*100)+'%';
- $('hint').textContent=tool==='build'?`点击空地放置${defs[building]?.name||'设施'} · Esc取消`:({inspect:'点击身体看状态 · 拖动移动世界',feed:'点击一个小家伙喂食 · 消耗2食物',wash:'点击清洁 · 按住身体连续擦洗',play:'点击玩球 · 愉悦+26，精力−5',harvest:'树木+3木/+1食物 · 岩石+3矿石',mop:'点击地面拖洗 · 同时清洁附近个体'})[tool];
+ $('hint').textContent=!s.intro.done?'一个生命正在诞生…':tool==='build'?`点击空地放置${defs[building]?.name||'设施'} · Esc取消`:({inspect:'点击身体看状态 · 拖动移动世界',feed:'点击一个小家伙喂食 · 消耗2食物',wash:'点击清洁 · 按住身体连续擦洗',play:'点击玩球 · 愉悦+26，精力−5',harvest:'树木+3木/+1食物 · 岩石+3矿石',mop:'点击地面拖洗 · 同时清洁附近个体'})[tool];
  $('signal-level').textContent='LV.0'+(s.stage+1);if(s.creatures.length)$('dialogue').textContent=s.answered?['“谢谢。我们开始相信你了。”','“两双眼睛，看见同一个世界。”','“我们学会照顾自己。你呢？”','“我们是许多个体，也是一种声音。”','“你教会我们生长。我们选择共存。”'][s.stage]:['“这里很大。你会留下吗？”','“我们变多了。你还认得我们吗？”','“照顾，是一种可以学会的语言。”','“如果记忆相连，谁是第一个我？”','“边界还在，声音已经相连。”'][s.stage];$('respond').textContent=s.answered?'一起继续探索':'我会照顾你们';drawPortrait(c);drawBadge();updateIndustryUI();if(!$('map-panel').hidden)drawMap();
 }
 function poly(points,color){ctx.fillStyle=color;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill()}
@@ -237,7 +243,7 @@ function rock(p,k){
 }
 // Animation timing is authored locally; direction follows actual traveled motion, including detours.
 function poseOf(c,t){
- const state=stateOf(c).key,elapsed=Math.max(0,(c.actionTotal||0)-(c.actionTime||0));
+ const state=stateOf(c).key,elapsed=Number.isFinite(c.actionClock)?c.actionClock:Math.max(0,(c.actionTotal||0)-(c.actionTime||0));
  const moving=c.behavior==='walking'&&c.actionTime<=0;
  const count=({eating:6,washing:6,playing:8,splitting:8,newborn:8})[state]||6;
  const progress=clamp(elapsed/Math.max(.01,c.actionTotal||1),0,1);
@@ -245,53 +251,76 @@ function poseOf(c,t){
  return {state,frame,count,progress,elapsed,moving,facing:Number.isFinite(c.facing)?c.facing:4};
 }
 function pixelCreature(context,x,y,k,c,t,portrait=false){
+ if(!s.intro.done&&c.id===1){drawHatch(context,x,y,k,s.intro.elapsed,portrait);return}if(c.behavior==='dead'){drawRemains(context,x,y,k);return}
  const pose=poseOf(c,t),st=pose.state,phase=pose.frame*Math.PI/3,moving=pose.moving,sleep=st==='sleeping',joy=st==='happy'||st==='playing',washing=st==='washing';
- const actionPhase=pose.frame*Math.PI*2/pose.count;
+ const actionPhase=pose.frame*Math.PI*2/pose.count,rootX=x,rootY=y;if(st==='playing'&&!portrait&&c.playMove!==false){const [dx,dy]=playOffset(pose.elapsed);x+=dx*k;y+=dy*k;}
  if(st==='newborn'&&!portrait)k*=.25+.75*Math.min(1,pose.progress*1.7);
  const stretch=st==='splitting'?1+Math.sin(pose.progress*Math.PI)*.4:1;
- const turn=portrait?4:st==='playing'?[4,3,2,1,0,7,6,4][pose.frame]:pose.facing,back=!portrait&&[0,1,7].includes(turn),side=portrait?0:[1,2,3].includes(turn)?1:[5,6,7].includes(turn)?-1:0;
+ const turn=portrait?4:st==='playing'?(pose.elapsed>=40/30&&pose.elapsed<46/30?0:4):pose.facing,back=!portrait&&[0,1,7].includes(turn),side=portrait?0:[1,2,3].includes(turn)?1:[5,6,7].includes(turn)?-1:0;
  const baby=c.age<18&&c.id>1;if(baby&&!portrait)k*=.82;
- const bounce=st==='playing'?-Math.abs(Math.sin(actionPhase))*7:moving?[0,-2,-1,0,-2,-1][pose.frame]:Math.sin(t*2+c.seed)*.4;
- const groundY=y,bodyY=sleep?6:st==='sad'?5:st==='eating'&&pose.progress>.15?11:0;y+=(bounce+bodyY)*k;
+ const bounce=st==='playing'?(pose.elapsed>=12/30&&pose.elapsed<15/30?-9.1:pose.elapsed>=15/30&&pose.elapsed<18/30?-32.7:0):moving?[0,-2,-1,0,-2,-1][pose.frame]:Math.sin(t*2+c.seed)*.4;
+ const groundY=y,bodyY=sleep?6:st==='sad'?5:st==='eating'&&pose.progress>.15?0:0;y+=(bounce+bodyY)*k;
  if(st==='splitting')x+=Math.sin(actionPhase*2)*2*k;
  const r=(a,b,w,h,col)=>{context.fillStyle=col;context.fillRect(Math.round(x+a*k*stretch),Math.round(y+b*k/stretch),Math.max(1,Math.ceil(w*k*stretch)),Math.max(1,Math.ceil(h*k/stretch)))};
  const outline='#876429',gold=c.health<35?'#d0c868':'#ffdc61',shade='#d6a13a',light='#fff095',ink='#34372a';
- context.fillStyle='#213a2860';context.beginPath();context.ellipse(x,groundY+4*k,st==='playing'?12*k:14*k,4*k,0,0,Math.PI*2);context.fill();
+ if(!c.noShadow){context.fillStyle='#213a2860';context.beginPath();context.ellipse(x,groundY+4*k,st==='playing'?12*k:14*k,4*k,0,0,Math.PI*2);context.fill();}
  // Feet, hands and blue overalls remain distinct at world scale.
  const step=moving?[-2,0,2,2,0,-2][pose.frame]:0;r(-10,0+step,8,4,shade);r(3,0-step,8,4,shade);r(-10,-1+step,7,3,gold);r(3,-1-step,7,3,gold);
- r(-10,-12,20,13,'#247a97');r(-8,-12,16,11,'#42b0c0');r(-8,-12,3,6,'#71d5d0');r(-1,-3,2,4,'#247a97');r(-14,-13,4,8,shade);r(10,-13,4,8,shade);
- const ear=sleep?3:st==='sad'||st==='sick'||st==='tired'?2:Math.sin(t*3+c.seed)*1.2;
- r(-20,-29+ear,9,5,shade);r(-22,-26+ear,5,8,shade);r(-21,-26+ear,3,6,'#e1a06a');r(11,-29+ear,9,5,shade);r(18,-26+ear,5,8,shade);r(19,-26+ear,3,6,'#e1a06a');
+ r(-9,-13,18,6,gold);r(-10,-8,20,8,'#326c90');r(-9,-8,18,7,'#669dbb');r(-9,-8,3,4,'#86bad0');r(-14,-13,4,8,shade);r(10,-13,4,8,shade);
+ const ear=c.hatchAir||st==='playing'&&pose.elapsed>=12/30&&pose.elapsed<18/30?-4:sleep?3:st==='sad'||st==='sick'||st==='tired'?2:Math.sin(t*3+c.seed)*1.2;
+ r(-18,-31+ear,7,5,shade);r(-18,-27+ear,4,8,shade);r(-17,-29+ear,3,7,'#b87742');r(11,-31+ear,7,5,shade);r(14,-27+ear,4,8,shade);r(14,-29+ear,3,7,'#b87742');
  r(-9,-34,18,3,outline);r(-13,-31,26,20,shade);r(-11,-33,22,22,gold);r(-14,-27,28,12,gold);r(-10,-31,17,3,light);
- r(-3,-37,5,5,shade);r(-1,-40,3,5,gold);r(2,-39,3,3,light);r(-5,-36,5,3,light);
+ r(-3,-37,5,5,shade);r(-1,-37,3,4,gold);r(2,-36,3,3,light);r(-5,-36,5,3,light);
  // Dirt appears in three successive layers, clearing visibly during washing.
  const dirt=100-c.clean;const spots=[[-11,-19,5,4],[8,-30,4,5],[-4,-12,5,3],[-10,-29,4,3],[7,-16,5,4],[-5,-34,5,3],[11,-23,3,4],[-8,-7,4,3]];
  for(let i=0;i<spots.length;i++){if(dirt>16+i*10){const [a,b,w,h]=spots[i];r(a,b,w,h,i%2?'#a18343':'#88783b')}}
  const blink=((t+c.seed)%4.7)>.0&&((t+c.seed)%4.7)<.12;
  // Retain facing when stopping; side glances and the rear silhouette are distinct.
- const eyesClosed=sleep||blink||(st==='eating'&&pose.progress>.15)||(st==='playing'&&pose.frame%4===2);
+ const eyesClosed=sleep||blink||st==='eating'||(st==='playing'&&pose.frame%4===2);
  if(!back){
- if(eyesClosed){r(-8,-24,6,2,ink);r(3,-24,6,2,ink);if(joy){r(-9,-22,2,2,ink);r(8,-22,2,2,ink)}}else{
-   r(-9,-28,7,11,'#fffbe3');r(2,-28,7,11,'#fffbe3');r(-8,-30,5,2,'#fffbe3');r(3,-30,5,2,'#fffbe3');
-   const look=side?side*2:st==='eating'?1:Math.round(Math.sin(t*.7+c.seed));const pupilH=st==='tired'||st==='sick'?4:6;
-   r(-7+look,-25,3,pupilH,ink);r(4+look,-25,3,pupilH,ink);r(-6+look,-25,1,2,'#fffdf0');r(5+look,-25,1,2,'#fffdf0');
-   if(st==='tired'||st==='sick'||st==='bored'){r(-9,-29,7,5,shade);r(2,-29,7,5,shade)}
+ if(eyesClosed){r(-7,-23,5,2,ink);r(2,-23,5,2,ink);if(joy){r(-9,-22,2,2,ink);r(8,-22,2,2,ink)}}else{
+   r(-7,-26,5,7,'#fffbe3');r(2,-26,5,7,'#fffbe3');
+   const look=side?side*2:st==='eating'?1:Math.round(Math.sin(t*.7+c.seed));const pupilH=st==='tired'||st==='sick'?3:5;
+   r(-6+Math.sign(look),-25,2,pupilH,ink);r(3+Math.sign(look),-25,2,pupilH,ink);
+   if(st==='tired'||st==='sick'||st==='bored'){r(-7,-27,5,4,shade);r(2,-27,5,4,shade)}
  }
  if(st==='singing'){r(-5,-15,9,7,ink);r(-3,-9,5,2,'#ad775a')}
  else if(st==='sad'||st==='bored'||st==='sick'){r(-3,-14,5,2,ink);r(-5,-12,2,2,ink);r(2,-12,2,2,ink);r(-10,-31,3,2,outline);r(7,-31,3,2,outline)}
  else if(st==='hungry'||st==='starving'){r(-2,-15,4,st==='starving'?6:4,ink);r(-1,-14,2,2,'#d59b69');if(st==='starving')r(10,-21+(t*3)%5,2,4,'#99d4d0')}
- else if(st==='eating'){r(-5,-15,9,pose.frame%3===0?6:3,ink);r(0,-15,2,2,'#dba073')}
+ else if(st==='eating'){const wide=pose.elapsed<4/30||(pose.elapsed>=14/30&&pose.elapsed<24/30);r(wide?-5:-2,-15,wide?9:3,wide?5:2,ink)}
  else if(joy){r(-5,-15,2,2,ink);r(4,-15,2,2,ink);r(-3,-13,7,2,ink);r(-10,-16,3,2,'#f3a174');r(8,-16,3,2,'#f3a174')}
  else{r(-2,-14,4,2,ink)}
- if(side&&Math.abs(turn-4)===2){r(side>0?-9:2,-30,8,14,gold);r(side>0?11:-15,-21,4,4,light)}}else{r(-9,-28,18,14,gold);r(-7,-30,12,3,light);r(-7,-10,14,7,'#389bae')}
+ if(side&&Math.abs(turn-4)===2){r(side>0?-9:2,-30,8,14,gold);r(side>0?11:-15,-21,4,4,light)}}else{r(-9,-28,18,14,gold);r(-7,-30,12,3,light);r(-9,-8,18,7,'#538fac')}
  if((c.exposure||0)>35){r(-12,-19,4,4,'#96719b');r(7,-29,5,5,'#816a96')}
  if(st==='sad'){r(-8,-17+pose.frame%3,2,6,'#75cbd1');r(6,-17+(pose.frame+1)%3,2,6,'#75cbd1')}
  if(st==='filthy'&&!washing){for(let i=0;i<3;i++){const fx=Math.sin(t*3+i*2)*21,fy=-29+Math.cos(t*2+i*3)*11;r(fx,fy,2,2,'#424b2b');r(fx+2,fy-1,2,1,'#a6b781')}}
  if(sleep){r(-8,-16,5,2,shade);context.fillStyle='#dce9cf';context.font=`bold ${Math.max(10,k*7)}px monospace`;context.fillText('z',x+14*k,y+(-35-(t*5)%8)*k)}
- if(st==='eating'){const savedX=x,savedY=y;x+=23*k;y=groundY;const ay=-9;r(-5,ay,12,9,'#ae4336');r(-4,ay-2,10,4,'#df6546');r(-2,ay-1,3,2,'#ffc074');if(pose.progress>.42)r(5,ay,3,4,'#fff5cb');if(pose.progress>.74)r(3,ay+3,5,3,'#fff5cb');r(0,ay-5,2,4,'#625139');r(2,ay-5,4,2,'#7f9e47');x=savedX;y=savedY}
- if(washing){const foam=[[-13,-10,8,4],[-5,-9,10,5],[6,-11,8,5],[-7,-35,6,4],[2,-35,7,4]];for(const [a,b,w,h] of foam)r(a,b,w,h,'#e6f9e6');const sx=[-16,-8,2,12,4,-7][pose.frame];r(sx,-27+(pose.frame%2)*4,15,15,'#edc454');r(sx+2,-29+(pose.frame%2)*4,10,3,'#f5da7d');r(sx+2,-19,2,2,'#b58d3c');r(sx+5,-14,2,2,'#b58d3c');for(let i=0;i<4;i++){const bx=Math.sin(t*3+i)*19,by=-10-((t*14+i*11)%35);context.strokeStyle='#b9f6e7';context.lineWidth=Math.max(1,k);r(bx,by,5,6,'#90cbe2');r(bx+1,by,3,2,'#e8ffff');r(bx+1,by+4,3,2,'#7998d2')}}
- if(st==='playing'){const bx=20+Math.sin(actionPhase)*13,by=-Math.abs(Math.sin(actionPhase))*21;r(bx-5,by-8,10,10,'#f2ebce');r(bx-5,by-8,5,5,'#d8654a');r(bx,by-3,5,5,'#59adc1');r(bx-3,by-9,6,1,'#fff3cd')}
+ if(st==='eating'){const savedX=x,savedY=y;x+=24*k;y=groundY;const bite=pose.elapsed>=24/30?2:pose.elapsed>=9/30?1:0;if(bite<2){r(-8,-17,17,17,'#a62f30');r(-10,-14,21,11,'#bd3a36');r(-6,-19,13,4,'#ca4940');r(-6,-16,4,3,'#e5775c');if(bite===1){r(5,-17,7,9,'#f2e9cb');r(2,-14,7,9,'#f2e9cb')}}else{r(-4,-18,5,18,'#ad3732');r(0,-16,4,14,'#f5e7c9');r(3,-13,3,7,'#e9d9b8');r(-6,-19,11,3,'#b03b34')}r(0,-23,2,5,'#66553c');r(2,-23,5,3,'#6e9144');x=savedX;y=savedY}
+
+ if(washing){const wp=WASH_PATH[Math.floor(pose.elapsed*30)%WASH_PATH.length];context.save();context.translate(x+wp[0]*k,groundY+wp[1]*k);context.rotate(-Math.PI/4);context.fillStyle='#e7c663';context.fillRect(-5.2*k,-10.6*k,10.4*k,21.2*k);context.fillStyle='#f4dc8c';context.fillRect(-5.2*k,-10.6*k,2*k,21.2*k);for(const [px,py] of [[-2,-7],[2,-4],[-2,0],[1,4],[-2,8]]){context.fillStyle='#bda44f';context.fillRect(px*k,py*k,2*k,2*k)}context.restore();for(let i=0;i<8;i++){const bx=Math.sin(pose.elapsed*6+i*2)*16,by=-4-((pose.elapsed*15+i*9)%34);r(bx,by,6,6,'#8eaddf');r(bx+1,by,4,3,'#c3edf7');r(bx+2,by,2,2,'#f3ffff');r(bx+2,by+4,3,2,'#a69edc')}}
+
+ if(st==='playing'){const savedX=x,savedSpriteY=y;x=rootX;y=rootY;const bt=pose.elapsed,by=bt<5/30?-35*(1-bt/(5/30)):bt>47/30?-Math.max(0,Math.sin((bt-47/30)*5))*18:0,bx=80+(bt>47/30?(bt-47/30)*37:0);context.fillStyle='#20382a75';context.beginPath();context.ellipse(x+bx*k,rootY+3*k,9*k,3*k,0,0,Math.PI*2);context.fill();y=rootY;for(let iy=-9;iy<=9;iy+=3)for(let ix=-9;ix<=9;ix+=3)if(ix*ix+iy*iy<115)r(bx+ix,by-10+iy,3,3,ix<0&&iy>0?'#b3483d':ix>0&&iy<0?'#d4c578':ix>0&&iy>0?'#76b6ca':'#f1eee1');x=savedX;y=savedSpriteY}
+
  if(st==='newborn'||st==='splitting'){for(let i=0;i<4;i++){const a=t*2+i*Math.PI/2;r(Math.cos(a)*23,-18+Math.sin(a)*22,2,4,'#fff3ae')}}
+}
+function drawRemains(context,x,y,k){const r=(a,b,w,h,col)=>{context.fillStyle=col;context.fillRect(Math.round(x+a*k),Math.round(y+b*k),Math.ceil(w*k),Math.ceil(h*k))};r(-22,-1,46,5,'#20362b70');r(-20,-16,25,15,'#f3cc60');r(-23,-10,5,8,'#c79a46');r(-17,-19,16,4,'#ffe17b');r(5,-14,12,14,'#3697ad');r(18,-12,4,5,'#e5bf55');r(18,-3,5,4,'#e5bf55');for(const [a,b] of [[-12,-13],[-10,-11],[-8,-9],[-8,-13],[-12,-9]])r(a,b,3,3,'#575237');r(-20,-3,5,2,'#675a31')}
+function drawShell(context,x,y,k){const r=(a,b,w,h,col)=>{context.fillStyle=col;context.fillRect(Math.round(x+a*k),Math.round(y+b*k),Math.ceil(w*k),Math.ceil(h*k))}; r(-13,-14,26,10,'#e2e8e2');r(-10,-5,21,7,'#c4d0ca');r(-8,1,15,3,'#a9b9b5');r(-13,-17,4,6,'#f6f7ed');r(-5,-14,5,4,'#f5f5e9');r(6,-16,7,6,'#f6f7ed');r(-17,2,5,3,'#c3d0c8');r(12,3,6,3,'#e0e8dc');}
+function drawHatch(context,x,y,k,elapsed,portrait=false){
+ const a=ANIMATION.hatch,t=clamp(elapsed,0,a.end),r=(xx,yy,w,h,col)=>{context.fillStyle=col;context.fillRect(Math.round(x+xx*k),Math.round(y+yy*k),Math.max(1,Math.ceil(w*k)),Math.max(1,Math.ceil(h*k)))};
+ context.fillStyle='#1c302a80';context.beginPath();context.ellipse(x,y+3*k,12*k,3*k,0,0,Math.PI*2);context.fill();
+ const drop=t<a.fall?-100*(1-t/a.fall):0,shake=t>=a.flash&&t<a.crack?Math.sin(t*55)*1.5:0;
+ if(t<a.emerge){const tilt=t>=25/30&&t<26/30;if(tilt){context.save();context.translate(x,y);context.rotate(Math.PI/18);context.translate(-x,-y)}const er=(a,b,w,h,col)=>r(a*1.385,b*1.47+drop,w*1.385,h*1.47,col);const widths=[6,10,14,18,22,26,30,34,36,36,36,34,32,28,22,14];for(let row=0;row<widths.length;row++){const w=widths[row];r(-w/2+shake,-53+row*3.3+drop,w,4,row>12?'#bdc8c7':'#dde3df');if(row>1&&row<13)r(-w/2+3+shake,-53+row*3.3+drop,w*.48,4,'#eef0e8')}
+ if(t>=a.glow&&t<a.crack){er(-14,-22,2,19,'#9ccadd');er(12,-22,2,19,'#9999d8');er(-9,1,18,2,'#a9a2dc')}
+ if(t>=a.flash&&t<a.crack){const flash=Math.floor((t-a.flash)*24)%3;for(const [xx,yy,w,h] of [[2,-45,3,28],[-12,-31,31,3],[3,-52,1,6],[22,-31,5,1]])er(xx,yy-flash,w,h,'#fff8a7')}
+ if(t>=a.crack){for(const [xx,yy,w,h] of [[0,-33,3,7],[-4,-28,7,3],[-6,-26,3,8],[-8,-20,10,3],[0,-21,3,10],[2,-15,5,3],[4,-13,3,8],[2,-26,8,3],[7,-24,3,5]])er(xx,yy,w,h,'#53605a')}if(tilt)context.restore();
+ }else{
+ const p=clamp((t-a.emerge)/(a.hop-a.emerge),0,1),frame=Math.max(0,Math.min(14,Math.floor((t-a.hop)*30+.0001))),lifts=[26.8,26.8,34.8,34.8,44.8,46,47.2,46,42,42,27.6,28,8.8,8.8,0];
+ const positions=[[0,0],[0,0],[17.07,-16.53],[17.07,-16.53],[17.07,-16.53],[34.4,-21.33],[34.4,-21.6],[34.4,-21.6],[51.47,-26.4],[51.47,-26.4],[51.47,-26.13],[68.53,-31.2],[68.53,-30.93],[68.53,-30.93],[85.3,-35.2]],offsetX=t<a.hop?0:positions[frame][0],offsetY=t<a.hop?0:positions[frame][1],jump=t<a.hop?0:lifts[frame];
+ if(t>=a.hop){context.fillStyle='#1c302a80';context.beginPath();context.ellipse(x+offsetX*k,y+offsetY*k+3*k,12*k,3*k,0,0,Math.PI*2);context.fill()}
+ const c={id:0,age:100,food:80,clean:100,happy:75,health:100,energy:100,behavior:'idle',actionTime:0,seed:1,facing:4,noShadow:true,hatchAir:t>=a.hop&&t<a.end};if(t<a.hop){context.save();context.beginPath();context.rect(x-40*k,y-100*k,80*k,87*k);context.clip()}pixelCreature(context,x+offsetX*k,y+(offsetY-jump)*k,k,c,t,portrait);if(t<a.hop)context.restore();
+ // Jagged lower shell remains on the ground as the creature emerges and hops out.
+ drawShell(context,x,y,k);
+ }
 }
 function drawStateBubble(c,p,k){
  const st=stateOf(c),warn=warnings(c);if(!warn.length&&($('detail-panel').hidden||c.id!==selected))return;
@@ -317,16 +346,16 @@ if(s.bridge.complete)for(const y of [-4,-3,2,3]){tile(28,y,'#ad956c',2);const q=
 for(const x of [35,36])for(const y of [10,11]){tile(x,y,'#a8a083',2);const q=project(x,y);rect(q.x-14*k,q.y,28*k,2*k,'#766f5e')}
 for(let y=-4;y<=0;y++){const p=project(6,y),built=s.cubeBridge.complete||s.cubeBridge.paid&&(0-y)/5<s.cubeBridge.progress/100;if(built){tile(6,y,'#ac905d',3);rect(p.x-18*k,p.y,36*k,2*k,'#6f5939');rect(p.x-17*k,p.y-12*k,3*k,13*k,'#c3a670');rect(p.x+15*k,p.y-12*k,3*k,13*k,'#c3a670')}else{ctx.strokeStyle='#b3bd7c70';ctx.beginPath();ctx.moveTo(p.x-14*k,p.y);ctx.lineTo(p.x+14*k,p.y);ctx.stroke()}}
 if(s.echo){ctx.strokeStyle='#dfed9b66';for(const c of s.creatures){let p=project(c.x,c.y),b=s.buildings.find(b=>b.type==='tower'),q=project(b.x,b.y,60);ctx.beginPath();ctx.moveTo(p.x,p.y-15*k);ctx.lineTo(q.x,q.y);ctx.stroke()}}
-let drawables=[...s.objects.map(o=>({...o,kind:'object'})),...s.buildings.map(b=>({...b,kind:'building'})),{x:6,y:-6,kind:'cube'},...s.creatures.map(c=>({...c,kind:'creature'}))].sort((a,b)=>(a.x+a.y)-(b.x+b.y));for(const o of drawables){let p=project(o.x,o.y);if(o.kind==='object'){if(o.amount<=0){if(o.type==='tree'){rect(p.x-6*k,p.y-9*k,12*k,12*k,'#775c3e');rect(p.x-6*k,p.y-10*k,12*k,4*k,'#b49a66')}continue}if(o.type==='tree')tree(p,k,false,o.amount<3);else rock(p,k*(o.amount<3?.7:1))}if(o.kind==='cube')drawCube(p,k,t);if(o.kind==='building')structure(o,p,k,t);if(o.kind==='creature'){if(o.id===selected&&!$('detail-panel').hidden){ctx.strokeStyle='#f4dfa0';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y+5*k,19*k,8*k,0,0,Math.PI*2);ctx.stroke()}if(o.behavior==='newborn'&&o.birthFrom){const birth=poseOf(o,t).progress,q=project(o.birthFrom.x,o.birthFrom.y);p.x=q.x+(p.x-q.x)*Math.min(1,birth*1.8);p.y=q.y+(p.y-q.y)*Math.min(1,birth*1.8)}pixelCreature(ctx,p.x,p.y,Math.max(.6,k*.72),o,t)}}
-for(const c of s.creatures)drawStateBubble(c,project(c.x,c.y),Math.max(.6,k*.72));
+let drawables=[...s.objects.map(o=>({...o,kind:'object'})),...s.buildings.map(b=>({...b,kind:'building'})),{x:6,y:-6,kind:'cube'},...s.shells.map(c=>({...c,kind:'shell'})),...s.remains.map(c=>({...c,kind:'remains'})),...s.creatures.map(c=>({...c,kind:'creature'}))].sort((a,b)=>(a.x+a.y)-(b.x+b.y));for(const o of drawables){let p=project(o.x,o.y);if(o.kind==='object'){if(o.amount<=0){if(o.type==='tree'){rect(p.x-6*k,p.y-9*k,12*k,12*k,'#775c3e');rect(p.x-6*k,p.y-10*k,12*k,4*k,'#b49a66')}continue}if(o.type==='tree')tree(p,k,false,o.amount<3);else rock(p,k*(o.amount<3?.7:1))}if(o.kind==='shell'){drawShell(ctx,p.x,p.y,Math.max(.6,k*.72));continue}if(o.kind==='remains'){drawRemains(ctx,p.x,p.y,Math.max(.6,k*.72));continue}if(o.kind==='cube')drawCube(p,k,t);if(o.kind==='building')structure(o,p,k,t);if(o.kind==='creature'){if(o.id===selected&&!$('detail-panel').hidden){ctx.strokeStyle='#f4dfa0';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y+5*k,19*k,8*k,0,0,Math.PI*2);ctx.stroke()}if(o.behavior==='newborn'&&o.birthFrom){const birth=poseOf(o,t).progress,q=project(o.birthFrom.x,o.birthFrom.y);p.x=q.x+(p.x-q.x)*Math.min(1,birth*1.8);p.y=q.y+(p.y-q.y)*Math.min(1,birth*1.8)}pixelCreature(ctx,p.x,p.y,Math.max(.6,k*.72),o,t)}}
+for(const c of s.creatures)if(s.intro.done)drawStateBubble(c,visualPoint(c),Math.max(.6,k*.72));
 for(const p of particles){const q=project(p.x,p.y);ctx.globalAlpha=clamp(p.life/p.max,0,1);const x=q.x+p.dx*k,y=q.y+p.dy*k;if(p.type==='water'){ctx.strokeStyle='#caf6ec';ctx.lineWidth=Math.max(1,k);ctx.strokeRect(x,y,p.size*k,p.size*k)}else rect(x,y,p.size*k,p.size*k,p.type==='crumb'?'#efba6b':p.type==='birth'?'#fff5ad':'#e9d97d');ctx.globalAlpha=1}
 if(building&&hover){const x=Math.round(hover.x),y=Math.round(hover.y);if(terrain(x,y)==='grass'){ctx.globalAlpha=.65;tile(x,y,occupied(x,y)?'#c66a4c':'#d6d791',2);structure({type:building,x,y},project(x,y),k,t);ctx.globalAlpha=1}}
 for(const e of effects){const p=project(e.x,e.y,40+(2-e.life)*12);ctx.globalAlpha=clamp(e.life,0,1);ctx.font=`bold ${Math.max(12,14*k)}px monospace`;ctx.textAlign='center';ctx.fillStyle='#293d27';ctx.fillText(e.text,p.x+1,p.y+1);ctx.fillStyle=e.color;ctx.fillText(e.text,p.x,p.y);ctx.globalAlpha=1;ctx.textAlign='start'}
 const night=(Math.sin(s.time/120*Math.PI*2-Math.PI/2)+1)/2;ctx.fillStyle=`rgba(12,28,43,${night*.17})`;ctx.fillRect(0,0,size.w,size.h);if(s.storm>0){ctx.fillStyle='#19384930';ctx.fillRect(0,0,size.w,size.h);ctx.strokeStyle='#c4dac45c';ctx.lineWidth=1;for(let i=0;i<70;i++){let x=(i*97+t*120)%size.w,y=(i*67+t*270)%size.h;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5,y+12);ctx.stroke()}}ctx.fillStyle='#0b251809';for(let y=0;y<size.h;y+=4)ctx.fillRect(0,y,size.w,1);
 if(paused){ctx.fillStyle='#172e25ce';ctx.fillRect(size.w/2-66,size.h/2-20,132,40);ctx.fillStyle='#e5e8be';ctx.font='14px monospace';ctx.textAlign='center';ctx.fillText(s.creatures.length?'Ⅱ 世界已暂停':'世界已沉寂',size.w/2,size.h/2+5);ctx.textAlign='start'}}
-function drawPortrait(c){pc.clearRect(0,0,120,100);if(c)pixelCreature(pc,60,80,2.1,c,animationTime,true)}
+function drawPortrait(c){pc.clearRect(0,0,120,100);if(c){if(!s.intro.done)drawHatch(pc,20,80,.75,s.intro.elapsed,true);else pixelCreature(pc,60,80,c.behavior==='playing'?1.15:2.1,c,animationTime,true)}}
 function frame(now){const dt=Math.min(.08,(now-last)/1000||0);last=now;if(!paused&&!document.hidden&&!document.querySelector('dialog[open]'))update(dt*speed);if(!paused&&!document.hidden&&!document.querySelector('dialog[open]')){effects.forEach(e=>e.life-=dt);effects=effects.filter(e=>e.life>0);particles.forEach(p=>{p.life-=dt;p.dx+=p.vx*dt;p.dy+=p.vy*dt;if(p.type==='water'||p.type==='crumb')p.vy+=35*dt});particles=particles.filter(p=>p.life>0)}draw(animationTime);drawPortrait(currentCreature());uiClock+=dt;saveClock+=dt;if(uiClock>.25){updateUI();uiClock=0}if(saveClock>8){save();saveClock=0}requestAnimationFrame(frame)}
 window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});resize();updateUI();requestAnimationFrame(frame);
 // Deterministic QA surface: no network or external model calls.
-window.Thronglets={terrain,findRoute,focusPoint,poseOf,drawSprite:pixelCreature,getState:()=>JSON.parse(JSON.stringify(s)),advance:n=>{for(let i=0;i<n*10;i++)update(.1);updateUI()},selectTool:setTool,worldPoint:(x,y)=>project(x,y),actAt:(x,y)=>action(project(x,y)),reset:()=>{s=initial();selectedBuilding=null;selected=1;paused=false;updateUI()},split:()=>split(s.creatures.find(c=>c.id===selected)||s.creatures[0]),stateOf:id=>stateOf(s.creatures.find(c=>c.id===id)),care:(id,kind)=>care(s.creatures.find(c=>c.id===id),kind),get paused(){return paused},get speed(){return speed}};
+window.Thronglets={playOffset,animationSpec:ANIMATION,drawHatch,terrain,findRoute,focusPoint,poseOf,drawSprite:pixelCreature,getState:()=>JSON.parse(JSON.stringify(s)),advance:n=>{for(let i=0;i<n*10;i++)update(.1);updateUI()},selectTool:setTool,worldPoint:(x,y)=>project(x,y),actAt:(x,y)=>action(project(x,y)),reset:()=>{s=initial();selectedBuilding=null;selected=1;paused=false;updateUI()},split:()=>split(s.creatures.find(c=>c.id===selected)||s.creatures[0]),stateOf:id=>stateOf(s.creatures.find(c=>c.id===id)),care:(id,kind)=>care(s.creatures.find(c=>c.id===id),kind),get paused(){return paused},get speed(){return speed}};
 })();

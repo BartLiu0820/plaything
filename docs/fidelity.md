@@ -108,3 +108,29 @@ Sources:
 ### Validation
 
 `node --check dist/game.js`, `node tests/smoke.cjs`, and `node tests/map-animation.cjs` pass. Added coverage for north-bridge cost/repeated clicks/construction/path, river detours via crossing, v4→v5 migration preserving resources/buildings, no duplicate resource seeding, remote newborn/wandering coordinates, map open/close/navigation, traveled-distance walk timing, action-local frames and distinct facing renders. Compared offscreen eight-row animation sheet, far territory, cube platform, initial portrait/mobile-sized Canvas and whole-map renders against inspected reference frames. These captures test the Canvas renderer, not browser DOM layout. Chromium still fails before launch with `socket() failed: Operation not permitted`, including an approved escalation; full browser/touch UI QA remains unverified.
+
+
+## Frame-measured animation pass · 2026-10-01
+
+The user explicitly requested animation 1:1. This pass measures the continuous official Apple preview instead of assigning generic sine-wave motion. It does **not** establish pixel-exact original sprites. Source video is 1920×886, 30 fps, 897 decoded frames (29.9s); frame n means relative time n/30. The container's PTS offset is excluded. Measurements and confidence are committed in `animation-reference.json`.
+
+Implemented and compared side by side with exact source frames:
+
+- **Hatch, frames 33–80:** falling egg; grounded at41; rim glow45; large star47; crack57–59 (upright / tilted / upright); emergence60–65; stepped hop66–79; grounded80. Egg dimensions normalized to approximately .90H×1.327H. Hop translation follows measured shadow positions, approximately +2.13H horizontally/−.88H vertically, with held lift samples. The final landing persists, and lower shell/shards remain temporarily. Old saves skip this intro; an interrupted new-game intro resumes.
+- **Eating, frames254–285:** two mouth states with observed 4/10/10/8 video-frame holds; apple whole→large bite at+9frames→remnant at+24frames. Corrected earlier interpretation: the body remains upright. The apparent crouch was caused by a cropped reference. The preceding apple fall/anticipation hop is separated by a shot relocation; no invented continuous approach is claimed.
+- **Wash, frames286–325:** 40 measured sponge centers, diagonal sponge proportions, independent blue/white/lilac bubbles. Body remains upright. Holding scrub no longer resets the visual clock every .18s. The recorded path repeats for longer user input; that loop extension is an adaptation, not a proven source loop.
+- **Play, frames326–394:** ball drop; .10s low hop and .10s high hop; front approach; six-frame back-facing hold; front return. Root trajectory uses measured shadow anchors, ending at +1.136H/+0.328H. Valid landings commit without snapping back. At terrain boundaries, motion remains local to keep the creature on walkable ground.
+- **Silhouette:** adjusted ear span/drop, face size, eye/pupil boxes and blue-band height to normalized measurements from frame240. The native pixel grid is not recoverable reliably from scaled/compressed video.
+- **Prone pose:** existing deaths now display the observed side-lying yellow/blue silhouette with an X eye. Retention time is a local presentation choice.
+
+### Exactness and remaining evidence by animation
+
+- Hatch: visible phase order/timestamps and root samples available; peak head is partly occluded, no original sprite atlas, palette or native frame grid.
+- Eating: visible mouth/apple changes available; final apple disappearance and return to idle are cut away; exact original cycle ending is unknown.
+- Washing: approximate centers carry ±8–12 source-pixel uncertainty due to bubbles; exact bubble sprites and the unedited reusable loop are unavailable.
+- Play: visible jump, back turn and root positions available; ball trajectory after the selected segment, full turnaround angles and the original walk-cycle frame set are incomplete.
+- Mitosis, full eight-direction walking, singing/talking and every negative-state transition: no complete clean sequence in this clip. Existing handmade implementations remain explicitly interpretive.
+
+True pixel/frame-identical coverage would require original sprite sheets (or lossless unoccluded frame sequences) plus full unedited recordings for those missing states. Further arbitrary procedural redraws cannot establish that claim. No bone/TNT/gameplay expansion was added in this animation pass.
+
+Validation: all three suites pass (`smoke.cjs`, `map-animation.cjs`, `hatch-animation.cjs`) plus JavaScript syntax. New coverage includes intro gating, no need decay during hatch, pause, mid-intro reload, versions1–5 without replay/resource loss, persistent hop landing/shell expiry, continuous scrub clock, death-state persistence, measured play root/valid terrain and distinct hatch render phases. Inspected side-by-side source/reconstruction contact sheets and action renders. Full browser DOM/touch QA remains blocked by Chromium process socket restrictions, as previously recorded.
