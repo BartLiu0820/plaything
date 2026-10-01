@@ -16,7 +16,7 @@ function harness(saved, width = 1120, height = 800) {
   function el(id) {
     assert(ids.has(id), `Missing HTML id ${id}`);
     if (elements.has(id)) return elements.get(id);
-    const cv = createCanvas && ['game', 'portrait','badge-art'].includes(id) ? createCanvas(id === 'game' ? width : 120, id === 'game' ? height : 100) : null;
+    const cv = createCanvas && ['game', 'portrait','badge-art','map-canvas'].includes(id) ? createCanvas(id === 'game' ? width : id==='map-canvas'?288:120, id === 'game' ? height : id==='map-canvas'?192:100) : null;
     const classes = new Set();
     const markup=html.match(new RegExp('<[^>]*id=\"'+id+'\"[^>]*>'))?.[0]||'';
     const o = { id, hidden: /\bhidden\b/.test(markup), style: {}, dataset: {}, classList: { add: x => classes.add(x), remove: x => classes.delete(x), toggle: (x, flag) => flag ? classes.add(x) : classes.delete(x) },
@@ -69,7 +69,7 @@ function run() {
   // Existing v1 saves migrate without resetting progress or existing buildings.
   let legacy = seedCreature({}, { version: 1, wood: 81 }); delete legacy.creatures[0].energy;
   legacy.buildings.push({ type: 'orchard', x: 9, y: 10, t: 0 });
-  const migrated = harness(JSON.stringify(legacy)); assert.equal(migrated.api.getState().version, 4); assert.equal(migrated.api.getState().wood, 81); assert.equal(migrated.api.getState().creatures[0].energy, 90); assert(migrated.api.getState().maxPopulation >= 10);
+  const migrated = harness(JSON.stringify(legacy)); assert.equal(migrated.api.getState().version, 5); assert.equal(migrated.api.getState().wood, 81); assert.equal(migrated.api.getState().creatures[0].energy, 90); assert(migrated.api.getState().maxPopulation >= 10);
   const empty = seedCreature(); empty.creatures = []; const extinct = harness(JSON.stringify(empty)); assert.equal(extinct.api.getState().creatures.length, 0); assert(extinct.api.paused);
   // States are distinct, and care directly targets exactly one creature.
   const states = [['neutral', {}], ['happy', { happy: 96 }], ['hungry', { food: 32 }], ['starving', { food: 9 }], ['dirty', { clean: 31 }], ['filthy', { clean: 9 }], ['sad', { happy: 12 }], ['bored', { happy: 41 }], ['tired', { energy: 12 }], ['sick', { health: 21 }]];

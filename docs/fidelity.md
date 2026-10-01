@@ -78,3 +78,33 @@ Episode references inspected:
 - First-person production interview: https://www.asoundeffect.com/black-mirror-season-7-sound/
 
 Added tests verify the eight-cell toolbar and menu/status/build panel open/close behavior. All prior simulation, saves, bridge and pollution tests continue to pass. Compared a populated-world render and an initial-world render against the episode-screen composition. Canvas rendering does not verify HTML layout in a browser; that previously documented limitation remains. Exact episode HUD pixel metrics, all tool meanings, full landscape, dialogue triggers and sprite frame timing still require clearer continuous reference footage.
+
+## Mobile-reference map and motion pass · 2026-10-01
+
+The user explicitly permits the released game as the reference for the complete map and action frames while keeping the episode's HUD/art direction primary. Inspected actual frames from Netflix's official App Store preview (1920×886, 30 fps), official game stills, and a licensed Act 2 press screenshot. These provide more evidence than descriptions alone.
+
+### Observed and incorporated
+
+- A broad stepped plateau contains angular internal blue ponds, clustered trees, rocks and chopped stumps. Exhausted trees now leave visible stumps until regrowth.
+- Act 1's bridge reaches a small platform holding a rotating, patterned glitch cube. Added a distinct northern platform and care-prioritized wooden bridge construction. The cube is an animated visual landmark; no unobserved activation prompt or story transition is invented.
+- Act 2 depicts a substantially larger populated landmass divided by a wide diagonal river, with a central crossing, ponds, mines and industrial buildings. Expanded the existing industrial territory, added internal water and its crossing, and increased mineral-node sites. Inspected public gameplay also shows a mine island between the town and northern forest/pond terrain, connected by two bridges. Added that traversable three-region relationship; the two interior crossings open with the existing industrial-shore bridge as a convenience adaptation. Existing ore-shore access and buildings survive.
+- Added an optional whole-map navigator inside the T menu. It shows creatures, structures, nodes and camera center; tapping any region moves the camera. It does not replace the episode toolbar.
+- Official motion shows ground-level apple bites, squinting/chewing, a sponge traversing the body amid blue-white bubbles, vertical ball-play hops with a ground-fixed shadow, and front/back turns. Actions now use their own frame timelines: six-frame walk/eat/scrub, eight-frame play; walk timing follows actual traveled distance. Persistent eight-way facing includes front, back, profiles and angled looks. Sad poses lower the body and show blue tears.
+- Mitosis now visibly stretches the parent and separates/scales in the newborn. Newborn placement and far-shore wandering no longer clamp creatures back to the original home area.
+
+### Reconstruction boundaries
+
+This is a coherent, explorable composite map, not a traced complete official world. The inspected images do not expose every perimeter tile or all island relationships. Exact coordinates, distances, bridge costs, terrain dimensions and the convenient shared-world connection between Act 1/Act 2 regions are authored here. The official game has a multi-act transition; this version preserves one continuous saved colony. Both wooden and bone bridges exist in the source game; only wood is implemented here. The cube's source platform is seen with a bone bridge in the trailer; our wood route is an explicit adaptation.
+
+The original artist's exact sprite sheets were not available. All sprites and frames remain original Canvas reconstructions. The accessible trailer did not show the mitosis transition, so its squash/stretch timing is interpretive. A falling egg/hatching sequence was observed but is not yet implemented. The full mountain/TNT sequence, bone harvesting/bridges, all advanced facilities, complete dialogue and original audio also remain absent. No claim of pixel/temporal 1:1 fidelity is made.
+
+Sources:
+- Official Apple page and preview: https://apps.apple.com/us/app/black-mirror-thronglets/id6529524046
+- Official bridge/world still: https://www.netflix.com/tudum/articles/black-mirror-thronglets-mobile-game-guide
+- Official mechanics, including both acts: https://games-netflix.helpshift.com/hc/en/32-black-mirror-thronglets/
+- Actual Act 2 island-junction footage: https://www.reddit.com/r/Thronglets/comments/1k6axo7/ok_im_getting_anxiety/
+- Netflix game press assets / studio: https://nightschoolstudio.com/project/black-mirror-thronglets/
+
+### Validation
+
+`node --check dist/game.js`, `node tests/smoke.cjs`, and `node tests/map-animation.cjs` pass. Added coverage for north-bridge cost/repeated clicks/construction/path, river detours via crossing, v4→v5 migration preserving resources/buildings, no duplicate resource seeding, remote newborn/wandering coordinates, map open/close/navigation, traveled-distance walk timing, action-local frames and distinct facing renders. Compared offscreen eight-row animation sheet, far territory, cube platform, initial portrait/mobile-sized Canvas and whole-map renders against inspected reference frames. These captures test the Canvas renderer, not browser DOM layout. Chromium still fails before launch with `socket() failed: Operation not permitted`, including an approved escalation; full browser/touch UI QA remains unverified.

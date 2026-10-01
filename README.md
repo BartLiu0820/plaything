@@ -12,7 +12,7 @@ Open http://localhost:8000. No dependencies or build required. Progress is brows
 
 ## Game loop
 
-Feed, clean, and play with yellow creatures. Gather renewable wood and ore, process ore into gems, reproduce, and build orchards, baths, playgrounds, nests, mines, and resonance towers. Creatures seek facilities autonomously and reproduce when healthy. Food shortages and storms challenge the colony. Reach 16 creatures and build a resonance tower to complete progression, then keep growing.
+Feed, clean, and play with yellow creatures. Gather renewable wood and ore, process ore into gems, reproduce, and build orchards, baths, playgrounds, nests, mines, and resonance towers. Creatures seek facilities autonomously and reproduce when healthy. Food shortages and storms challenge the colony. Reach 16 creatures and build a resonance tower, then continue into bridge exploration, industry and pollution management.
 
 Chinese interface; draggable isometric world; zoom; pause and 1×/2×/4× speed; help; reset confirmation; optional synthesized sound; desktop/mobile layouts; local save.
 
@@ -53,3 +53,9 @@ Deposit wood at the bridge and healthy creatures build it, opening the far shore
 ## Episode-first visual mode
 
 The default view now targets the game shown on-screen in *Plaything*: left 2×4 toolbar with T crest, top-right population medallion, full-screen green diamond-patch terrain and blue left-side river. Click the population badge or a creature to inspect it; T opens settings/help; the house tool opens construction. Mobile-derived expansion/industry features remain accessible under the labeled expansion tab. The permanent dashboard, goal banner and bottom dock no longer dominate the screen. Back-facing sprites and intermittent singing poses were added using inspected episode stills and a production interview as evidence. See fidelity notes for interpretation limits.
+
+## Map and animation reference pass
+
+The episode HUD remains primary. Open T → 全图 to navigate the expanded world: northern cube platform reached by a new wooden bridge, original home territory, and larger industrial shore with river crossing and ponds. Bridge controls are in 设施 → 拓展. Existing saves migrate to v5 without resetting resources, creatures or facilities.
+
+Motion now includes traveled-distance walking, retained direction, ground-level apple bites, moving sponge/bubbles, turning ball-play hops with a stationary shadow, crying crouches and visible mitosis separation. These are original reconstructions from inspected official gameplay footage, not extracted source sprites. The map combines observed regions in one saved world; exact original perimeter and multi-act story are not claimed. Run `node tests/map-animation.cjs` for new navigation, animation and migration regressions. See the fidelity notes for sources and omissions.
