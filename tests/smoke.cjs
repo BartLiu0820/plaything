@@ -32,8 +32,8 @@ function harness(saved, width = 1120, height = 800, rawIntro = false) {
   const document = { getElementById: el, querySelector: () => [...elements.values()].find(e => e.open) || null, querySelectorAll: () => [], addEventListener(n, f) { events[n] = f; }, hidden: false };
   const deterministicMath = Object.create(Math);
   deterministicMath.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-  const context = { document, window: { addEventListener: noop }, localStorage: storage, ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frame = f, clearTimeout: noop, setTimeout: noop, console, Math: deterministicMath, Set };
-  vm.createContext(context); vm.runInContext(source, context);if(!saved&&!rawIntro)context.window.Thronglets.advance(context.window.Thronglets.animationSpec.hatch.end);
+  const context = { OffscreenCanvas:createCanvas?class{constructor(w,h){return createCanvas(w,h)}}:undefined, document, window: { addEventListener: noop }, localStorage: storage, ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frame = f, clearTimeout: noop, setTimeout: noop, console, Math: deterministicMath, Set };
+  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/sprites.js'),'utf8'),context);vm.runInContext(source, context);if(!saved&&!rawIntro)context.window.Thronglets.advance(context.window.Thronglets.animationSpec.hatch.end);
   return { api: context.window.Thronglets, el, events, storage, frame: t => frame(t) };
 }
 function seedCreature(changes = {}, world = {}) {

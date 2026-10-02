@@ -63,3 +63,9 @@ Motion now includes traveled-distance walking, retained direction, ground-level 
 ## Measured animation pass
 
 New games now begin with the observed falling egg, rim/star flash, three-frame crack wobble, emergence and stepped hop; existing saves do not replay it. Feeding mouth/apple transitions, the 40-sample sponge path, play anticipation jump and front/back/root displacement are calibrated against the official 30fps Apple preview. `docs/animation-reference.json` records measured frames, normalized dimensions, confidence and missing evidence. These are rebuilt graphics aligned to the observed clip, not original sprite assets or a pixel-exact copy. Run `node tests/hatch-animation.cjs` for intro persistence, old saves, pauses, scrub cadence and landing regressions.
+
+## Original expression sprites
+
+Six supplied artist animation families now play from exact indexed source pixels and their original variable frame durations: explanation, nod, skeptical reaction, conversation, thought and singing. Click a creature → 动作与表情 to play them; performance A–E selects the available conversation/singing variants. Native source frames receive no invented overlays. Care/walking/hatching/splitting remain documented reconstructions because their original clips were not in the bundle. See `docs/sprite-sources.json` for attribution and provenance, and run `node tests/sprites.cjs` for pixel/timing verification.
+
+`dist/sprites.js` contains the complete compiled frame data. `scripts/compile-sprites.py` can regenerate it from the supplied bundle's extracted PNG/JSON files using Pillow; it never executes bundle code.

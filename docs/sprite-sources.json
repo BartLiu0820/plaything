@@ -1,0 +1,110 @@
+{
+  "artist": "Kevin Jean-Philippe",
+  "front_singing_credit": "Alex Chavez",
+  "portfolio": "https://kjp.artstation.com/projects/lG8LDk",
+  "copyright": "All rights reserved; source assets supplied for this project. No broader license asserted.",
+  "source_files": [
+    {
+      "action": "impactful_explanation",
+      "character": "ThrongA",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/961/462/original/kevin-jean-philippe-kjp-thronga-impactfulexplanation-b-portfolio.gif?1747129970",
+      "sha256": "de406e575c1cb0974b1941a6df84c6c23467754f91f7a0c83c08bc75f5efedc9",
+      "frames": 27,
+      "duration_ms": 3600
+    },
+    {
+      "action": "happy_nod",
+      "character": "ThrongA",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/961/464/original/kevin-jean-philippe-kjp-thronga-looktatplayerhappynod-portfolio.gif?1747129972",
+      "sha256": "8d7b6548443d8dab295e10cb5f6bde36cd5f96722a3ffe11dee976c2d4c79635",
+      "frames": 10,
+      "duration_ms": 4000
+    },
+    {
+      "action": "skeptical_toward_player",
+      "character": "ThrongA",
+      "source": "https://cdnb.artstation.com/p/assets/images/images/087/961/465/original/kevin-jean-philippe-kjp-thronga-skepticaltoplayer-portfolio.gif?1747129974",
+      "sha256": "e9c2ccce3aa56e9e48e2c600fa40efc43052d186cce455d9c51424d0a1c59bcd",
+      "frames": 4,
+      "duration_ms": 1300
+    },
+    {
+      "action": "talk_to_other_thronglet",
+      "character": "ThrongA",
+      "source": "https://cdnb.artstation.com/p/assets/images/images/087/961/467/original/kevin-jean-philippe-kjp-thronga-talktootherthronglet-portfolio.gif?1747129976",
+      "sha256": "2de47c8c60c3edef00e2aa9f75a0fdf54cc84977ab8b125a5d8f3464b92bcdab",
+      "frames": 13,
+      "duration_ms": 1300
+    },
+    {
+      "action": "talk_to_other_thronglet",
+      "character": "ThrongC",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/961/468/original/kevin-jean-philippe-kjp-throngc-talktootherthronglet-portfolio.gif?1747129978",
+      "sha256": "1cee861a73dcb5489ef87bb9e0f5b9076313b6fecebc2cfb62daebbca25b3e33",
+      "frames": 13,
+      "duration_ms": 2200
+    },
+    {
+      "action": "talk_to_other_thronglet",
+      "character": "ThrongD",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/961/470/original/kevin-jean-philippe-kjp-throngd-talktootherthronglet-portfolio.gif?1747129980",
+      "sha256": "70c7a9af9c8bc1c3fb1f7a6f2830f4b0feefda3fc4f8b1b76ef6b442b0f813c8",
+      "frames": 13,
+      "duration_ms": 2200
+    },
+    {
+      "action": "deep_thoughts",
+      "character": "ThrongA",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/961/624/original/kevin-jean-philippe-kjp-thronga-deepthought-portfolio.gif?1747130283",
+      "sha256": "eaed01034b0d8de85864045b62058aa88bb8a874dc987c68cb010ab9cea07cc5",
+      "frames": 13,
+      "duration_ms": 2200
+    },
+    {
+      "action": "singing",
+      "character": "ThrongA",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/962/028/original/kevin-jean-philippe-kjp-thronga-singtothronglet-portfolio.gif?1747130977",
+      "sha256": "d18ca8b4680c5147a3887c9fcc753ff398a557745bc5a33193636b2d292d1f1a",
+      "frames": 6,
+      "duration_ms": 1500
+    },
+    {
+      "action": "singing",
+      "character": "ThrongB",
+      "source": "https://cdnb.artstation.com/p/assets/images/images/087/962/017/original/kevin-jean-philippe-kjp-throngb-singtothronglet-portfolio.gif?1747130965",
+      "sha256": "f72cee9535cedde4c3564864dbeaa6b0ac7bdeb66647eb2b0f992a4a63c4bc84",
+      "frames": 9,
+      "duration_ms": 1800
+    },
+    {
+      "action": "singing",
+      "character": "ThrongC",
+      "source": "https://cdna.artstation.com/p/assets/images/images/087/962/018/original/kevin-jean-philippe-kjp-throngc-singtothronglet-portfolio.gif?1747130968",
+      "sha256": "c238247cce5e43ac6fe4db48d4c27147d842281699da49548be48b33f5a62f11",
+      "frames": 9,
+      "duration_ms": 1800
+    },
+    {
+      "action": "singing",
+      "character": "ThrongD",
+      "source": "https://cdnb.artstation.com/p/assets/images/images/087/962/021/original/kevin-jean-philippe-kjp-throngd-singtothronglet-portfolio.gif?1747130970",
+      "sha256": "17df57e357af044cd910ce4a3f62d040fe3d57917f99d4adb8b0a1118b4f0e22",
+      "frames": 9,
+      "duration_ms": 1800
+    },
+    {
+      "action": "singing",
+      "character": "ThrongE",
+      "source": "https://cdnb.artstation.com/p/assets/images/images/087/962/023/original/kevin-jean-philippe-kjp-thronge-singtothronglet-portfolio.gif?1747130973",
+      "sha256": "63038d1f1f94cb93b9af891e87c55b64cdf021dd31c656b5d2eafd6061f08205",
+      "frames": 9,
+      "duration_ms": 1800
+    }
+  ],
+  "decoded_frames": 135,
+  "direction_sequences": 17,
+  "unique_panel_frames": 103,
+  "palette_entries": 20,
+  "source_grid_scale": 10,
+  "processing": "Exact 10x10 source cells retained. Only solid presentation backgrounds and baked bottom-left A.\u2013E. labels omitted. Original frame order, holds and directional panels retained."
+}
