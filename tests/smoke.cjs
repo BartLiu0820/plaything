@@ -16,7 +16,7 @@ function harness(saved, width = 1120, height = 800, rawIntro = false) {
   function el(id) {
     assert(ids.has(id), `Missing HTML id ${id}`);
     if (elements.has(id)) return elements.get(id);
-    const cv = createCanvas && ['game', 'portrait','badge-art','map-canvas'].includes(id) ? createCanvas(id === 'game' ? width : id==='map-canvas'?288:120, id === 'game' ? height : id==='map-canvas'?192:100) : null;
+    const cv = createCanvas && ['game', 'portrait','badge-art','map-canvas','animation-canvas'].includes(id) ? createCanvas(id === 'game' ? width : id==='map-canvas'?288:120, id === 'game' ? height : id==='map-canvas'?192:100) : null;
     const classes = new Set();
     const markup=html.match(new RegExp('<[^>]*id=\"'+id+'\"[^>]*>'))?.[0]||'';
     const o = { id, hidden: /\bhidden\b/.test(markup), style: {}, dataset: {}, classList: { add: x => classes.add(x), remove: x => classes.delete(x), toggle: (x, flag) => flag ? classes.add(x) : classes.delete(x) },
@@ -33,7 +33,7 @@ function harness(saved, width = 1120, height = 800, rawIntro = false) {
   const deterministicMath = Object.create(Math);
   deterministicMath.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const context = { OffscreenCanvas:createCanvas?class{constructor(w,h){return createCanvas(w,h)}}:undefined, document, window: { addEventListener: noop }, localStorage: storage, ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frame = f, clearTimeout: noop, setTimeout: noop, console, Math: deterministicMath, Set };
-  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/sprites.js'),'utf8'),context);vm.runInContext(source, context);if(!saved&&!rawIntro)context.window.Thronglets.advance(context.window.Thronglets.animationSpec.hatch.end);
+  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/sprites.js'),'utf8'),context);if(fs.existsSync(path.join(__dirname,'../dist/authored-sprites.js')))vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/authored-sprites.js'),'utf8'),context);vm.runInContext(source, context);if(!saved&&!rawIntro)context.window.Thronglets.advance(context.window.Thronglets.animationSpec.hatch.end);
   return { api: context.window.Thronglets, el, events, storage, frame: t => frame(t) };
 }
 function seedCreature(changes = {}, world = {}) {

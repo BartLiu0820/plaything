@@ -1,6 +1,6 @@
 # Plaything · 小小群落
 
-A standalone browser recreation inspired by Black Mirror: Thronglets. An unofficial tribute, not the complete official game. All graphics use original procedural Canvas pixel rendering. Behavior is rule-based simulation; there is no conscious AI, external model API, backend, or paid dependency.
+A standalone browser recreation inspired by Black Mirror: Thronglets. An unofficial tribute, not the complete official game. World graphics use Canvas pixel rendering. The six supplied expression families retain their original indexed pixels and timing; missing motions are completed in the same pixel style. Behavior is rule-based simulation; there is no conscious AI, external model API, backend, or paid dependency.
 
 ## Run
 
@@ -66,6 +66,14 @@ New games now begin with the observed falling egg, rim/star flash, three-frame c
 
 ## Original expression sprites
 
-Six supplied artist animation families now play from exact indexed source pixels and their original variable frame durations: explanation, nod, skeptical reaction, conversation, thought and singing. Click a creature → 动作与表情 to play them; performance A–E selects the available conversation/singing variants. Native source frames receive no invented overlays. Care/walking/hatching/splitting remain documented reconstructions because their original clips were not in the bundle. See `docs/sprite-sources.json` for attribution and provenance, and run `node tests/sprites.cjs` for pixel/timing verification.
+Six supplied artist animation families now play from exact indexed source pixels and their original variable frame durations: explanation, nod, skeptical reaction, conversation, thought and singing. Click a creature → 动作与表情 to play them; performance A–E selects the available conversation/singing variants. Native source frames receive no invented overlays. Care, walking, hatching and splitting use separately labeled, original-style authored completions because their original clips were not in the bundle. See `docs/sprite-sources.json` for attribution and provenance, and run `node tests/sprites.cjs` for pixel/timing verification.
 
 `dist/sprites.js` contains the complete compiled frame data. `scripts/compile-sprites.py` can regenerate it from the supplied bundle's extracted PNG/JSON files using Pillow; it never executes bundle code.
+
+## Original-style motion completions
+
+The supplied 44-pixel canvas, character palette and proportions now provide a common foundation for eight-way walking/standing, eating, washing, playing, sleep, negative need states, emergence, mitosis and prone remains. These are articulated frame sequences with independent ear, eye, mouth, arm and foot changes; they are authored completions, not recovered official frames. The immutable supplied six families are still in `dist/sprites.js`; completions live separately in `dist/authored-sprites.js`.
+
+Open a creature → 动作与表情 → 动作图鉴 to preview either set, pause, scrub and step through frames without changing colony resources or progress. Source clips are labeled 原始素材; completions are labeled 同风格补绘. Original measured hatch/play root trajectories and care costs remain in place.
+
+Run `node tests/authored-animation.cjs` alongside the other suites. It checks frame bounds/palette indices/timing, heading selection, action entry/exit/interruption, pause, saved active actions and viewer isolation. `python3 scripts/build-authored-sprites.py --source dist/sprites.js --output /tmp/thronglet-assets` regenerates the authored pack and review sheets from the compiled supplied source pack (requires Pillow).

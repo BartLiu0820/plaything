@@ -1,0 +1,562 @@
+{
+  "provenance": {
+    "source": "User supplied Thronglets角色序列帧",
+    "sourceSha256": "6b79c79639b65f753b893fb5cd22654e90a1bfab9d9c3530af4181c697abddfe",
+    "nativeCanvas": [
+      44,
+      44
+    ],
+    "nativeStandingHeight": 34,
+    "anchor": [
+      22,
+      40
+    ],
+    "authoredCompletions": true,
+    "originalClassesModified": false,
+    "hasBakedShadows": false,
+    "characterPaletteIndices": [
+      1,
+      20
+    ],
+    "propPaletteIndices": "original palette only",
+    "eightDirections": [
+      "back",
+      "back_right",
+      "right",
+      "front_right",
+      "front",
+      "front_left",
+      "left",
+      "back_left"
+    ],
+    "description": "Original matrix-based limb, mouth, ear, joint, profile, rear, care, emergence and mitosis completions. Character and props use the supplied palette unchanged."
+  },
+  "unique_frames": 143,
+  "sequences": {
+    "idle_0": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_0": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_1": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_1": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_2": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_2": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_3": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_3": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_4": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_4": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_5": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_5": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_6": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_6": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "idle_7": {
+      "frames": 4,
+      "durations_ms": [
+        1650,
+        110,
+        1600,
+        140
+      ],
+      "duration_ms": 3500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "walk_7": {
+      "frames": 8,
+      "durations_ms": [
+        110,
+        95,
+        90,
+        95,
+        110,
+        95,
+        90,
+        95
+      ],
+      "duration_ms": 780,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "eating": {
+      "frames": 8,
+      "durations_ms": [
+        160,
+        120,
+        120,
+        145,
+        120,
+        125,
+        135,
+        141.666666666667
+      ],
+      "duration_ms": 1066.666666666667,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "washing": {
+      "frames": 10,
+      "durations_ms": [
+        160,
+        130,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        150,
+        173.333333333333
+      ],
+      "duration_ms": 1333.333333333333,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "playing": {
+      "frames": 13,
+      "durations_ms": [
+        180,
+        170,
+        160,
+        190,
+        210,
+        170,
+        160,
+        93.333333333333,
+        200,
+        46.666666666667,
+        190,
+        200,
+        330
+      ],
+      "duration_ms": 2300.0,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "hungry": {
+      "frames": 6,
+      "durations_ms": [
+        440,
+        190,
+        220,
+        320,
+        190,
+        440
+      ],
+      "duration_ms": 1800,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "sad": {
+      "frames": 6,
+      "durations_ms": [
+        440,
+        240,
+        250,
+        310,
+        160,
+        420
+      ],
+      "duration_ms": 1820,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "tired": {
+      "frames": 6,
+      "durations_ms": [
+        580,
+        230,
+        380,
+        430,
+        220,
+        400
+      ],
+      "duration_ms": 2240,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "sick": {
+      "frames": 6,
+      "durations_ms": [
+        400,
+        180,
+        110,
+        130,
+        230,
+        480
+      ],
+      "duration_ms": 1530,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "dirty": {
+      "frames": 6,
+      "durations_ms": [
+        420,
+        260,
+        160,
+        180,
+        160,
+        400
+      ],
+      "duration_ms": 1580,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "working": {
+      "frames": 6,
+      "durations_ms": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ],
+      "duration_ms": 1080,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "sleeping": {
+      "frames": 4,
+      "durations_ms": [
+        900,
+        700,
+        900,
+        700
+      ],
+      "duration_ms": 3200,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "dead": {
+      "frames": 1,
+      "durations_ms": [
+        1000
+      ],
+      "duration_ms": 1000,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "splitting": {
+      "frames": 9,
+      "durations_ms": [
+        280,
+        180,
+        240,
+        260,
+        240,
+        260,
+        260,
+        320,
+        460
+      ],
+      "duration_ms": 2500,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "newborn": {
+      "frames": 10,
+      "durations_ms": [
+        380,
+        280,
+        260,
+        280,
+        240,
+        260,
+        290,
+        310,
+        340,
+        360
+      ],
+      "duration_ms": 3000,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "filthy": {
+      "frames": 6,
+      "durations_ms": [
+        420,
+        260,
+        160,
+        180,
+        160,
+        400
+      ],
+      "duration_ms": 1580,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "starving": {
+      "frames": 6,
+      "durations_ms": [
+        440,
+        190,
+        220,
+        320,
+        190,
+        440
+      ],
+      "duration_ms": 1800,
+      "anchor": [
+        22,
+        40
+      ]
+    },
+    "bored": {
+      "frames": 6,
+      "durations_ms": [
+        440,
+        240,
+        250,
+        310,
+        160,
+        420
+      ],
+      "duration_ms": 1820,
+      "anchor": [
+        22,
+        40
+      ]
+    }
+  }
+}
