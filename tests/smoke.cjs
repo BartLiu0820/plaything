@@ -64,7 +64,7 @@ function run() {
   for (const speed of [2, 4, 1]) { h.el('speed').click(); assert.equal(g.speed, speed); }
   h.el('confirm-reset').click(); assert.equal(g.getState().creatures.length, 1); assert(h.storage.value); assert.equal(harness(h.storage.value).api.getState().creatures.length, 1);
   // Episode HUD keeps advanced systems folded, but preserves all controls.
-  assert.equal((html.match(/class="tool"/g)||[]).length,8,'episode left toolbar is exactly 2 by 4');
+  assert.equal((html.match(/class="tool(?: destructive)?"/g)||[]).length,10,'toolbar adds explicit throw and pan controls in 2 by 5 layout');
   const hud=harness();assert(hud.el('detail-panel').hidden);assert(hud.el('system-menu').hidden);hud.el('crest-menu').click();assert(!hud.el('system-menu').hidden);hud.el('population-badge').click();assert(!hud.el('detail-panel').hidden);assert(hud.el('system-menu').hidden);assert(!hud.el('creature-section').hidden);assert(hud.el('advanced-section').hidden);hud.el('open-build').click();assert(!hud.el('build-section').hidden);assert(hud.el('creature-section').hidden);hud.el('close-panel').click();assert(hud.el('detail-panel').hidden);
   // Existing v1 saves migrate without resetting progress or existing buildings.
   let legacy = seedCreature({}, { version: 1, wood: 81 }); delete legacy.creatures[0].energy;
