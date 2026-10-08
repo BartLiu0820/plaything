@@ -8,7 +8,7 @@ const WASH_PATH=[[0.16,-3.16],[0.16,-3.16],[0.12,-3.16],[0.2,-3.24],[2.4,-21.96]
 const nativeSprites=window.ThrongletSprites,authoredSprites=window.ThrongletAuthored;
 const N=48,MAP_H=32,MIN_Y=-10,TW=34,TH=17,SAVE='thronglets-world-v1';
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const defs={orchard:{unlock:10,name:'苹果树',icon:'♣',wood:10,gems:2,desc:'持续产粮 · 自动喂食'},bath:{unlock:6,name:'浴池',icon:'≈',wood:12,gems:4,desc:'自动清洁 · 减少疾病'},play:{unlock:15,name:'旋转木马',icon:'⚑',wood:14,gems:4,desc:'自动玩耍 · 提升快乐'},nest:{name:'巢居',icon:'⌂',wood:18,gems:5,desc:'人口上限 +8'},mine:{gemUnlock:50,name:'晶矿',icon:'◆',wood:22,gems:6,desc:'矿脉上建造 · 每9秒产4矿石'},factory:{name:'工厂',icon:'▥',wood:30,gems:20,gemUnlock:300,desc:'3矿石→12晶石 / 6秒 · 产生污染'},tower:{name:'共鸣塔',icon:'⋮',wood:40,gems:25,desc:'需 16 个体 · 集体共鸣'}};
+const defs={orchard:{unlock:10,name:'苹果树',icon:'♣',wood:10,gems:2,desc:'持续产粮 · 自动喂食'},bath:{unlock:6,name:'浴池',icon:'≈',wood:12,gems:4,desc:'自动清洁 · 减少疾病'},play:{unlock:15,name:'旋转木马',icon:'⚑',wood:14,gems:4,desc:'自动玩耍 · 提升快乐'},nest:{name:'巢居',icon:'⌂',wood:18,gems:5,desc:'人口上限 +8'},mine:{gemUnlock:50,name:'晶矿',icon:'◆',wood:22,gems:6,desc:'矿脉上建造 · 每9秒产4矿石'},factory:{name:'工厂',icon:'▥',wood:30,gems:20,gemUnlock:300,desc:'3矿石→12晶石 / 6秒 · 产生污染'},tower:{currentPopulation:16,name:'共鸣塔',icon:'⋮',wood:40,gems:25,desc:'需 16 个体 · 集体共鸣'}};
 const nodes=[{x:7,y:15},{x:26,y:9},{x:28,y:12},{x:34,y:7},{x:40,y:11},{x:38,y:22},{x:29,y:24},{x:28,y:0},{x:30,y:-6}];
 const farOutline=[[24,7],[28,4],[34,4],[34,2],[41,2],[41,7],[45,7],[45,17],[42,17],[42,24],[35,24],[35,28],[28,28],[28,22],[24,22]];
 function inPolygon(x,y,points){let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside}return inside}
@@ -52,7 +52,26 @@ function updatePauseIcon(){$('pause').innerHTML=paused?"<svg aria-hidden=\"true\
 function setTool(t){cancelGesture();if(t!=='inspect')$('detail-panel').hidden=true;tool=t;cancelGesture();building=null;selectedBuilding=null;updateUI();beep(350)}
 $('buildings').innerHTML=Object.entries(defs).map(([id,d])=>`<button class="building" data-build="${id}" title="${d.desc}"><span>${d.icon} ${d.name}</span><small>${d.wood} 木 · ${d.gems} 晶</small></button>`).join('');
 $('tools').onclick=e=>{const b=e.target.closest('[data-tool]');if(b)setTool(b.dataset.tool)};
-$('buildings').onclick=e=>{const b=e.target.closest('[data-build]');if(!b)return;building=b.dataset.build;tool='build';$('detail-panel').hidden=true;toast(`${defs[building].name}：${defs[building].desc}。点击空地建造`);updateUI()};
+// One availability rule feeds both button feedback and the final placement check.
+function buildAvailability(id){
+ const d=defs[id];if(!d)return{state:'locked',reason:'未知设施',label:'不可建造'};
+ const population=Math.max(s.maxPopulation||0,s.creatures.length),gems=Math.max(s.maxGems||0,s.gems);
+ if(d.unlock&&population<d.unlock)return{state:'locked',reason:`${d.name}未解锁：群落达到${d.unlock}个体后解锁（最高${population}）`,label:`${d.unlock}个体解锁`};
+ if(d.gemUnlock&&gems<d.gemUnlock)return{state:'locked',reason:`${d.name}未解锁：晶石储备达到${d.gemUnlock}后解锁（最高${Math.floor(gems)}）`,label:`${d.gemUnlock}晶石解锁`};
+ if(d.currentPopulation&&s.creatures.length<d.currentPopulation)return{state:'locked',reason:`${d.name}暂不可建造：当前需要至少${d.currentPopulation}个体（现有${s.creatures.length}）`,label:`当前需${d.currentPopulation}个体`};
+ const missing=[['wood','木材'],['gems','晶石']].filter(([key])=>s[key]<d[key]).map(([key,label])=>`${Math.ceil(d[key]-s[key])}${label}`).join('、');
+ return missing?{state:'insufficient',reason:`${d.name}资源不足：还缺${missing}`,label:`还缺${missing}`}:{state:'available',reason:d.desc,label:`${d.wood}木 · ${d.gems}晶`};
+}
+function selectBuilding(id){
+ const availability=buildAvailability(id);if(availability.state!=='available'){toast(availability.reason);return false}
+ cancelGesture();building=id;tool='build';selectedBuilding=null;$('detail-panel').hidden=true;toast(`${defs[id].name}：${defs[id].desc}。点击空地建造`);updateUI();return true;
+}
+function validatePlacement(){
+ if(tool!=='build')return true;
+ const availability=buildAvailability(building);if(availability.state==='available')return true;
+ cancelGesture();building=null;tool='inspect';toast(`${availability.reason}，已取消放置`);return false;
+}
+$('buildings').onclick=e=>{const b=e.target.closest('[data-build]');if(b)selectBuilding(b.dataset.build)};
 $('split').onclick=()=>{split(s.creatures.find(c=>c.id===selected)||s.creatures[0]);updateUI();save()};
 $('pause').onclick=()=>{cancelGesture();paused=!paused;updatePauseIcon();$('pause').setAttribute('aria-label',paused?'继续':'暂停');updateUI()};
 $('speed').onclick=()=>{speed=speed===1?2:speed===2?4:1;$('speed').textContent=speed+'×'};
@@ -101,6 +120,7 @@ function care(c,kind,scrub=false,automatic=false){
 function visualPoint(c){const p=project(c.x,c.y),k=Math.max(.6,scale()*.72);if(c.behavior==='playing'&&c.actionTime>0){if(c.playMove!==false){const [dx,dy]=playOffset(c.actionClock||0);p.x+=dx*k;p.y+=dy*k}const t=c.actionClock||0;p.y-=(t>=12/30&&t<15/30?9.1:t>=15/30&&t<18/30?32.7:0)*k}return p}
 function hitCreature(p){const k=Math.max(.6,scale()*.72);return s.creatures.filter(c=>{const q=visualPoint(c);return Math.abs(p.x-q.x)<20*k&&p.y>q.y-39*k&&p.y<q.y+9*k}).sort((a,b)=>(b.x+b.y)-(a.x+a.y))[0]}
 function action(p){
+  if(!validatePlacement()){updateUI();return}
   const pos=unproject(p.x,p.y),x=Math.round(pos.x),y=Math.round(pos.y);let near=hitCreature(p)||s.creatures.filter(c=>dist(c,pos)<1.35).sort((a,b)=>dist(a,pos)-dist(b,pos))[0];
   if(tool==='inspect'){if(dist(pos,{x:6,y:-6})<1.8){toast(s.cubeBridge.complete?'方块平台：来自手机版第一幕的视觉地标':'修通北侧木桥，可以走到方块平台');return}if(near){selected=near.id;openPanel('creature');updateUI()}else{const b=s.buildings.find(b=>dist(b,pos)<1);if(b){selectedBuilding=b;openPanel('advanced');updateUI();toast(defs[b.type].name+'：'+defs[b.type].desc)}}return}
   if(!s.intro.done){toast('蛋壳正在裂开，等它跳出来');return}if(paused){toast('世界已暂停，按 ▶ 继续');return}if(tool==='feed'||tool==='wash'||tool==='play'){if(!near){toast('点击小家伙的身体，或在名片里直接照顾');return}care(near,tool);return}
@@ -108,7 +128,7 @@ function action(p){
   if(x>=24&&!s.bridge.complete){toast('先在桥头放好木材，让群落修通木桥');return}
   if(tool==='throw'){throwRock(p,pos);return}if(tool==='mop'){mop(pos);return}
   if(terrain(x,y)!=='grass'){toast('请选择岛上的草地');return}
-  if(tool==='build'){if(!building)return;const d=defs[building];if(d.gemUnlock&&(s.maxGems||s.gems)<d.gemUnlock){toast(`${d.name}在晶石储备达到${d.gemUnlock}后解锁`);return}if(building==='mine'&&!nodes.some(n=>n.x===x&&n.y===y)){toast('晶矿必须放在发光矿脉上');return}if((s.maxPopulation||s.creatures.length)<(d.unlock||0)){toast(`${d.name}在群落达到${d.unlock}个体后解锁`);return}if(occupied(x,y)){toast('这块地已有树木、矿石或设施');return}if(building==='tower'&&s.creatures.length<16){toast('需要至少16个体，才能建立共鸣塔');return}if(s.wood<d.wood||s.gems<d.gems){toast('资源不足，先采集树木和晶石');return}s.wood-=d.wood;s.gems-=d.gems;s.buildings.push({type:building,x,y,t:0,level:1,running:true});selectedBuilding=s.buildings[s.buildings.length-1];effects.push({x,y,text:d.name+' 建成',color:'#fff2b0',life:2});beep(740);building=null;tool='inspect';save();updateUI();return}
+  if(tool==='build'){if(!building)return;const d=defs[building];if(building==='mine'&&!nodes.some(n=>n.x===x&&n.y===y)){toast('晶矿必须放在发光矿脉上');return}if(occupied(x,y)){toast('这块地已有树木、矿石或设施');return}s.wood-=d.wood;s.gems-=d.gems;s.buildings.push({type:building,x,y,t:0,level:1,running:true});selectedBuilding=s.buildings[s.buildings.length-1];effects.push({x,y,text:d.name+' 建成',color:'#fff2b0',life:2});beep(740);building=null;tool='inspect';save();updateUI();return}
   if(tool==='harvest'){const o=s.objects.filter(o=>o.amount>0&&dist(o,pos)<1.1).sort((a,b)=>dist(a,pos)-dist(b,pos))[0];if(!o){toast('点击树木或灰色矿石的底部');return}o.amount--;o.regen=0;if(o.type==='tree'){s.wood+=3;s.food+=1}else s.ore+=3;effects.push({x:o.x,y:o.y,text:o.type==='tree'?'+3 木 · +1 食物':'+3 矿石',color:'#fff2b0',life:1.2});beep(280);updateUI()}
 }
 // Stones are deliberate, resource-priced impacts. Creature damage is non-lethal.
@@ -277,6 +297,7 @@ function update(dt){
  if(s.creatures.length>=16&&s.buildings.some(b=>b.type==='tower')&&!s.echo){s.echo=true;s.stage=4;toast('集体共鸣已开启。你创造了一个繁荣的群落。');beep(1000)}
 }
 function updateUI(){
+ validatePlacement();
  updatePauseIcon();
  const c=currentCreature();if(c)selected=c.id;const st=stateOf(c);
  $('day').textContent='DAY '+String(1+Math.floor(s.time/120)).padStart(2,'0');$('phase').textContent=['初次接触','共同生活','自我照顾','集体思维','共鸣时代'][s.stage];$('population').textContent=s.creatures.length;$('population-badge').title=`${s.creatures.length}个体 / 容量${capacity()} · 查看状态`;$('weather').textContent=paused?'时间已暂停':s.storm>0?'风暴中 · 脏污加快':'生态系统运行中';
@@ -289,7 +310,7 @@ function updateUI(){
  const count=s.creatures.filter(v=>warnings(v).length).length;$('colony-alert').textContent=count?`${count} 个体需要照顾 · 定位`:'所有个体状态稳定';$('colony-alert').classList.toggle('urgent',count>0);$('colony-alert').disabled=!count;
  $('split').disabled=!c;$('split-detail').textContent=c&&c.actionTime>0?'等待当前动作完成':'8 食物 · 2 晶石';
  document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('active',b.dataset.tool===tool);b.setAttribute('aria-pressed',b.dataset.tool===tool);if(b.dataset.tool==='mop'){b.classList.toggle('locked',!s.mopUnlocked);b.title=s.mopUnlocked?'清除范围内地面、设施与个体污染':'出现工厂污染后解锁'}});
- document.querySelectorAll('[data-build]').forEach(b=>{b.classList.toggle('active',b.dataset.build===building);b.setAttribute('aria-pressed',b.dataset.build===building);const d=defs[b.dataset.build],locked=(s.maxPopulation||s.creatures.length)<(d.unlock||0)||(d.gemUnlock&&(s.maxGems||s.gems)<d.gemUnlock);b.classList.toggle('locked',locked);b.title=locked?`达到${d.gemUnlock||d.unlock}${d.gemUnlock?'晶石':'个体'}解锁；${d.desc}`:d.desc;const info=b.querySelector?.('small');if(info)info.textContent=locked?d.gemUnlock?`${d.gemUnlock}晶石解锁`:`${d.unlock}个体解锁`:`${d.wood}木 · ${d.gems}晶`});
+ document.querySelectorAll('[data-build]').forEach(b=>{const id=b.dataset.build,d=defs[id],availability=buildAvailability(id);b.classList.toggle('active',id===building);b.setAttribute('aria-pressed',id===building);b.setAttribute('aria-disabled',availability.state!=='available');b.dataset.availability=availability.state;b.classList.toggle('locked',availability.state==='locked');b.classList.toggle('insufficient',availability.state==='insufficient');b.title=availability.reason+'；'+d.desc;b.setAttribute('aria-label',d.name+'：'+availability.label);const info=b.querySelector?.('small');if(info)info.textContent=availability.label});
  const goals=[['照顾它，满足需要后分裂',c?Math.min(c.food/65,c.clean/60,c.happy/65,1):0],['6个体解锁浴池 · 先照顾和繁衍',(Math.min(6,s.creatures.length)/6+(s.buildings.some(b=>b.type==='bath')?1:0))/2],['10个体解锁苹果树 · 建巢扩大容量',(Math.min(10,s.creatures.length)/10+(s.buildings.some(b=>b.type==='orchard')?1:0))/2],['15个体解锁旋转木马 · 16个体建共鸣塔',(Math.min(16,s.creatures.length)/16+(s.buildings.some(b=>b.type==='tower')?1:0))/2],['共鸣已达成 · 继续照顾这个世界',1]];if(s.stage===4){if(!s.bridge.complete)goals[4]=['修通木桥，开发远岸矿脉',s.bridge.progress/100];else if(!s.buildings.some(b=>b.type==='factory'))goals[4]=['积累300晶石，建立第一座工厂',Math.min(1,(s.maxGems||s.gems)/300)];else if(s.pollution.some(p=>p.amount>5))goals[4]=['控制工业污染 · 拖洗地面，照顾个体',1-Math.min(1,s.pollution.reduce((a,p)=>a+p.amount,0)/500)];else goals[4]=['群落持续发展 · 在生产与环境之间平衡',1]}const g=goals[s.stage];$('goal').textContent=g[0];$('goal-progress').style.width=Math.min(100,g[1]*100)+'%';
  $('hint').textContent=!s.intro.done?'一个生命正在诞生…':tool==='build'?`点击空地放置${defs[building]?.name||'设施'} · Esc取消`:({inspect:'点击观察 · 拖起个体放到草地 · 空白处拖地图',pan:'拖动任意位置移动地图',throw:'投石：点击目标 · 消耗1矿石 · 先用采集敲灰色岩石',feed:'点击一个小家伙喂食 · 消耗2食物',wash:'点击清洁 · 按住身体连续擦洗',play:'点击玩球 · 愉悦+26，精力−5',harvest:'树木+3木/+1食物 · 岩石+3矿石',mop:'点击地面拖洗 · 同时清洁附近个体'})[tool];
  $('signal-level').textContent='LV.0'+(s.stage+1);if(s.creatures.length)$('dialogue').textContent=s.answered?['“谢谢。我们开始相信你了。”','“两双眼睛，看见同一个世界。”','“我们学会照顾自己。你呢？”','“我们是许多个体，也是一种声音。”','“你教会我们生长。我们选择共存。”'][s.stage]:['“这里很大。你会留下吗？”','“我们变多了。你还认得我们吗？”','“照顾，是一种可以学会的语言。”','“如果记忆相连，谁是第一个我？”','“边界还在，声音已经相连。”'][s.stage];$('respond').textContent=s.answered?'一起继续探索':'我会照顾你们';drawPortrait(c);drawBadge();updateIndustryUI();if(!$('map-panel').hidden)drawMap();
@@ -437,5 +458,5 @@ $('animation-step').onclick=()=>{animationPreview.running=false;const d=previewD
 function frame(now){const dt=Math.min(.08,(now-last)/1000||0);last=now;if(!paused&&!document.hidden&&!document.querySelector('dialog[open]'))update(dt*speed);if(!paused&&!document.hidden&&!document.querySelector('dialog[open]')){effects.forEach(e=>e.life-=dt);effects=effects.filter(e=>e.life>0);particles.forEach(p=>{p.life-=dt;p.dx+=p.vx*dt;p.dy+=p.vy*dt;if(p.type==='water'||p.type==='crumb')p.vy+=35*dt});particles=particles.filter(p=>p.life>0)}draw(animationTime);drawPortrait(currentCreature());drawAnimationPreview(dt);uiClock+=dt;saveClock+=dt;if(uiClock>.25){updateUI();uiClock=0}if(saveClock>8){save();saveClock=0}requestAnimationFrame(frame)}
 window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelGesture();save()}});resize();updateUI();requestAnimationFrame(frame);
 // Deterministic QA surface: no network or external model calls.
-window.Thronglets={interactionState:()=>({holding:drag?.lift||null,moved:!!drag?.moved,shots:shots.length,tool,pan:{...pan}}),dropAllowed:(x,y,id=1)=>dropAllowed({x,y},s.creatures.find(c=>c.id===id)),previewState:()=>({...animationPreview}),previewDescriptor,drawAnimationPreview,authoredSelection,authoredSprites,perform:(id,action)=>perform(s.creatures.find(c=>c.id===id),action),nativeFrame:(name,ms,loop)=>nativeSprites.frameAt(name,ms,loop),playOffset,animationSpec:ANIMATION,drawHatch,terrain,findRoute,focusPoint,poseOf,drawSprite:pixelCreature,getState:()=>JSON.parse(JSON.stringify(s)),advance:n=>{for(let i=0;i<n*10;i++)update(.1);updateUI()},selectTool:setTool,worldPoint:(x,y)=>project(x,y),actAt:(x,y)=>action(project(x,y)),reset:()=>{s=initial();selectedBuilding=null;selected=1;paused=false;updateUI()},split:()=>split(s.creatures.find(c=>c.id===selected)||s.creatures[0]),stateOf:id=>stateOf(s.creatures.find(c=>c.id===id)),care:(id,kind)=>care(s.creatures.find(c=>c.id===id),kind),get paused(){return paused},get speed(){return speed}};
+window.Thronglets={buildAvailability,selectBuilding,interactionState:()=>({building,holding:drag?.lift||null,moved:!!drag?.moved,shots:shots.length,tool,pan:{...pan}}),dropAllowed:(x,y,id=1)=>dropAllowed({x,y},s.creatures.find(c=>c.id===id)),previewState:()=>({...animationPreview}),previewDescriptor,drawAnimationPreview,authoredSelection,authoredSprites,perform:(id,action)=>perform(s.creatures.find(c=>c.id===id),action),nativeFrame:(name,ms,loop)=>nativeSprites.frameAt(name,ms,loop),playOffset,animationSpec:ANIMATION,drawHatch,terrain,findRoute,focusPoint,poseOf,drawSprite:pixelCreature,getState:()=>JSON.parse(JSON.stringify(s)),advance:n=>{for(let i=0;i<n*10;i++)update(.1);updateUI()},selectTool:setTool,worldPoint:(x,y)=>project(x,y),actAt:(x,y)=>action(project(x,y)),reset:()=>{s=initial();selectedBuilding=null;selected=1;paused=false;updateUI()},split:()=>split(s.creatures.find(c=>c.id===selected)||s.creatures[0]),stateOf:id=>stateOf(s.creatures.find(c=>c.id===id)),care:(id,kind)=>care(s.creatures.find(c=>c.id===id),kind),get paused(){return paused},get speed(){return speed}};
 })();

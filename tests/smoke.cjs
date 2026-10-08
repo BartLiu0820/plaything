@@ -29,12 +29,21 @@ function harness(saved, width = 1120, height = 800, rawIntro = false) {
     };
     elements.set(id, o); return o;
   }
-  const document = { getElementById: el, querySelector: () => [...elements.values()].find(e => e.open) || null, querySelectorAll: () => [], addEventListener(n, f) { events[n] = f; }, hidden: false };
+  const buildButtons=new Map();
+  function queryButtons(selector){
+    if(selector!=='[data-build]')return[];
+    for(const [,id] of (el('buildings').innerHTML||'').matchAll(/data-build="([^"]+)"/g))if(!buildButtons.has(id)){
+      const classes=new Set(),attributes={},small={textContent:''};
+      buildButtons.set(id,{dataset:{build:id},attributes,disabled:false,classList:{toggle:(key,on)=>on?classes.add(key):classes.delete(key),contains:key=>classes.has(key)},setAttribute:(key,value)=>attributes[key]=String(value),querySelector:()=>small});
+    }
+    return [...buildButtons.values()];
+  }
+  const document = { getElementById: el, querySelector: () => [...elements.values()].find(e => e.open) || null, querySelectorAll: queryButtons, addEventListener(n, f) { events[n] = f; }, hidden: false };
   const deterministicMath = Object.create(Math);
   deterministicMath.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const context = { OffscreenCanvas:createCanvas?class{constructor(w,h){return createCanvas(w,h)}}:undefined, document, window: { addEventListener: noop }, localStorage: storage, ResizeObserver: class { observe() {} }, requestAnimationFrame: f => frame = f, clearTimeout: noop, setTimeout: noop, console, Math: deterministicMath, Set };
   vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/sprites.js'),'utf8'),context);if(fs.existsSync(path.join(__dirname,'../dist/authored-sprites.js')))vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/authored-sprites.js'),'utf8'),context);vm.runInContext(source, context);if(!saved&&!rawIntro)context.window.Thronglets.advance(context.window.Thronglets.animationSpec.hatch.end);
-  return { api: context.window.Thronglets, el, events, storage, frame: t => frame(t) };
+  return { api: context.window.Thronglets, el, events, storage, buildButton:id=>buildButtons.get(id), frame: t => frame(t) };
 }
 function seedCreature(changes = {}, world = {}) {
   const base = harness().api.getState();
